@@ -1,0 +1,13 @@
+Package: keboola.shiny.lib
+Type: Package
+Title: Keboola Shiny Library
+Version: 1.0
+Date: 2015-06-09
+Author: marc raiser
+Maintainer: marc raiser <marc@keboola.com>
+Description: Shared Libraries for Keboola Shiny Applications 
+Depends:
+    shiny,
+    keboola.sapi.r.client,
+    methods
+License: MIT + file LICENSE

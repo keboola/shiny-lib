@@ -1,0 +1,6 @@
+
+export(KeboolaShiny)
+exportClass(KeboolaShiny)
+import(shiny)
+import(methods)
+import(keboola.sapi.r.client)
