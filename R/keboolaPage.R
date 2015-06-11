@@ -4,7 +4,7 @@
 #' @param mainPanel UI element
 #' @import shiny
 #' @export
-keboolaPage <- function(sidebarPanel, mainPanel) {
+keboolaPage <- function(bootstrapPage) {
     bootstrapPage(
         # basic application container divs
         div(
@@ -74,8 +74,7 @@ keboolaPage <- function(sidebarPanel, mainPanel) {
                 ),
                 conditionalPanel(
                     condition = "output.loggedIn == ''",
-                    sidebarPanel,
-                    mainPanel    
+                    bootstrapPage    
                 ),
                 div(class="container-fluid",
                     div(class="row",
