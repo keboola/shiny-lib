@@ -37,7 +37,18 @@ keboolaPage <- function(bootstrapPage) {
                 
                 .error {
                     color: #ff0033;
-                }')),
+                }
+
+                .kb-example:before {
+                    content: "Example: "
+                }
+                .kb-example {
+                    color: #A4A4A4;
+                }
+                .kb-hint {
+                    border-bottom: 1px dashed #333;
+                }
+                ')),
             div(class="row",
                 
                 HTML('<div class="navbar navbar-default navbar-static-top kb-navbar-top">
