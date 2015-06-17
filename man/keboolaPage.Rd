@@ -4,12 +4,10 @@
 \alias{keboolaPage}
 \title{Page Template for Keboola Shiny Apps}
 \usage{
-keboolaPage(sidebarPanel, mainPanel)
+keboolaPage(bootstrapPage)
 }
 \arguments{
-\item{sidebarPanel}{UI element}
-
-\item{mainPanel}{UI element}
+\item{bootstrapPage}{Bootstrape page element}
 }
 \description{
 Page Template for Keboola Shiny Apps

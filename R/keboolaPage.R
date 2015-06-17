@@ -1,7 +1,6 @@
 #' Page Template for Keboola Shiny Apps
 #' 
-#' @param sidebarPanel UI element
-#' @param mainPanel UI element
+#' @param bootstrapPage Bootstrape page element
 #' @import shiny
 #' @export
 keboolaPage <- function(bootstrapPage) {
@@ -86,4 +85,3 @@ keboolaPage <- function(bootstrapPage) {
         )
     )
 }
-
