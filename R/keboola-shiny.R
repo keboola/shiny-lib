@@ -169,9 +169,7 @@ KeboolaShiny <- setRefClass(
         #'
         #' @exportMethod
         getDescription = function(data) {
-            descriptor <- data$descriptor
             contentRet <- list()
-            data <- data$groupData
 
             for (section in descriptor$sections) {
                 if (length(section$subsections) == 0) {
