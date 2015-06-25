@@ -103,8 +103,9 @@ KeboolaShiny <- setRefClass(
         #' NOTE: customElement method should be implemented by the application
         #' @param section - node of the descriptor
         #' @param level - heading level (1=h2, 2=h3)
+        #' @param customElements - callback for processing custom elements
         #' @return list of HTML elements
-        processSection = function(section, level) {
+        processSection = function(section, level, customElements) {
             sectionRet <- list()
             if (level == 1) {
                 sectionRet[[length(sectionRet) + 1]] <- h2(section$title)
@@ -148,7 +149,9 @@ KeboolaShiny <- setRefClass(
                         }
                     } 
                     if ((statement$type == 'plot') || (statement$type == 'custom')) {
-                        statementRet[[length(statementRet) + 1]] <- p(customElements(statement$id, statement$content), class = 'lg-plot')
+                        if (!is.null(customElements)) {
+                            statementRet[[length(statementRet) + 1]] <- p(customElements(statement$id, statement$content), class = 'lg-plot')
+                        }
                     }
                     if (nchar(statement$example) > 0) {
                         statementRet[[length(statementRet) + 1]] <- p(statement$example, class = 'lg-example')
@@ -166,15 +169,17 @@ KeboolaShiny <- setRefClass(
 
         #' Method returns HTML content for a descriptor 
         #' @param descriptor - descriptor data
+        #' @param customElements - callback for printing custom elements, signature: function(elementId, content)
+        #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(descriptor) {
+        getDescription = function(descriptor, customElements) {
             contentRet <- list()
 
             for (section in descriptor$sections) {
                 if (length(section$subsections) == 0) {
                     sectionRet <- list()
-                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1)
+                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1, customElements)
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 } else {
                     sectionRet <- list()
@@ -186,13 +191,13 @@ KeboolaShiny <- setRefClass(
                    
                     for (subsection in section$subsections) {
                         ld <- list()
-                        ld[[length(ld) + 1]] <- processSection(subsection, 2)
+                        ld[[length(ld) + 1]] <- processSection(subsection, 2, customElements)
                         sectionRet[[length(sectionRet) + 1]] <- tag('li', ld)
                     }
                     sectionRet[['class']] <- 'kb-enumeration'
                     ul <- tag('ul', sectionRet)
                     sectionRet <- list()
-                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1)
+                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1, customElements)
                     sectionRet[[length(sectionRet) + 1]] <- ul
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 }
