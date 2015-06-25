@@ -174,6 +174,7 @@ KeboolaShiny <- setRefClass(
         #'
         #' @exportMethod
         getDescription = function(descriptor, customElements) {
+            oldOptions <- options(stringsAsFactors = FALSE)
             contentRet <- list()
 
             for (section in descriptor$sections) {
@@ -202,6 +203,7 @@ KeboolaShiny <- setRefClass(
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 }
             }
+            options(oldOptions)
             contentRet
         }
     )
