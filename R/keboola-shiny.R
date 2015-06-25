@@ -165,10 +165,10 @@ KeboolaShiny <- setRefClass(
         },
 
         #' Method returns HTML content for a descriptor 
-        #' @param data - descriptor data
+        #' @param descriptor - descriptor data
         #'
         #' @exportMethod
-        getDescription = function(data) {
+        getDescription = function(descriptor) {
             contentRet <- list()
 
             for (section in descriptor$sections) {
