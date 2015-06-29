@@ -16,8 +16,8 @@ KeboolaShiny <- setRefClass(
     methods = list(
         #' Constructor.
         #'
-        #' @param Optional name of data directory, if not supplied then it
-        #'  will be read from command line argument.
+        #' @param Optional name of data directory, if not supplied then
+        #'  it will be read from command line argument.
         #' @exportMethod
         initialize = function(session) {
             token <<- .self$getToken(session)()
@@ -25,21 +25,21 @@ KeboolaShiny <- setRefClass(
             bucket <<- .self$getBucket(session)()
             loginMsg <<- .self$getLogin(session)()
         },
-        
+
         #' Get the runId from the query string
         #' 
         #' @param Shiny server session object
         #' @return function closure to retrieve the runId
         getRunId = function(session) {
             reactive({
-                val <- as.character(parseQueryString(session$clientData$url_search)$runId)
-                if (length(val) == 0) {
-                    val <- ''
-                }
-                val
+               val <- as.character(parseQueryString(session$clientData$url_search)$runId)
+               if (length(val) == 0) {
+                   val <- ''
+               }
+               val
             })
         },
-        
+
         #' Get the bucket from the query string
         #' 
         #' @param Shiny server session object
@@ -53,7 +53,7 @@ KeboolaShiny <- setRefClass(
                 val
             })    
         },
-        
+
         #' Get the token from the session headers or input element
         #' 
         #' @param Shiny server session object
@@ -68,9 +68,9 @@ KeboolaShiny <- setRefClass(
                     }
                 }
                 val
-            })
+           })
         },
-        
+
         #' Returns login status message or empty string if valid
         #' 
         #' @param the ShinySession object
@@ -87,24 +87,25 @@ KeboolaShiny <- setRefClass(
                     }, error = function(e){
                         if (runId == "" & exists("client")){
                             message <- e
-                        }else {
+                        } else {
                             message <- "Please make sure the token and bucket values are correct"
                         }
                         paste(paste0("<label>Error :</label><span class='text-danger'>", message, "</span>"),
-                              paste("<label>token</label>",token,sep=" : "),
-                              paste("<label>bucket</label>",bucket,sep=" : "),
-                              paste("<label>runId</label>",runId,sep=" : "), sep = "<br/>")
+
+                            paste("<label>token</label>",token,sep=" : "),
+                            paste("<label>bucket</label>",bucket,sep=" : "),
+                            paste("<label>runId</label>",runId,sep=" : "), sep = "<br/>")
                     })
                 } else "Please log in."
             })
         },
-        
         #' internal method that returns HTML content for the given section node
         #' NOTE: customElement method should be implemented by the application
         #' @param section - node of the descriptor
         #' @param level - heading level (1=h2, 2=h3)
-        #'
-        processSection = function(section, level) {
+        #' @param customElements - callback for processing custom elements
+        #' @return list of HTML elements
+        processSection = function(section, level, customElements) {
             sectionRet <- list()
             if (level == 1) {
                 sectionRet[[length(sectionRet) + 1]] <- h2(section$title)
@@ -141,14 +142,16 @@ KeboolaShiny <- setRefClass(
                                 names(df) <- names(row)
                             } # else, ignore the row
                         }
-                        
+
                         if (nrow(df) > 0) {
                             tid <- stringi::stri_rand_strings(n = 1, length = 8, pattern = "[A-Za-z]")
                             statementRet[[length(statementRet) + 1]] <- shiny::renderDataTable(df)
                         }
                     } 
                     if ((statement$type == 'plot') || (statement$type == 'custom')) {
-                        statementRet[[length(statementRet) + 1]] <- p(customElements(statement$id, statement$content), class = 'lg-plot')
+                        if (!is.null(customElements)) {
+                            statementRet[[length(statementRet) + 1]] <- p(customElements(statement$id, statement$content), class = 'lg-plot')
+                        }
                     }
                     if (nchar(statement$example) > 0) {
                         statementRet[[length(statementRet) + 1]] <- p(statement$example, class = 'lg-example')
@@ -163,22 +166,21 @@ KeboolaShiny <- setRefClass(
             }
             sectionRet
         },
-        
+
         #' Method returns HTML content for a descriptor 
-        #' @param data - descriptor data
+        #' @param descriptor - descriptor data
+        #' @param customElements - callback for printing custom elements, signature: function(elementId, content)
+        #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(data) {
-            descriptor <- data$descriptor
+        getDescription = function(descriptor, customElements) {
+            oldOptions <- options(stringsAsFactors = FALSE)
             contentRet <- list()
-            contentRet[[length(contentRet) + 1]] <- h2(input$listGroup)
-            contentRet[[length(contentRet) + 1]] <- h1(data$title)
-            data <- data$groupData
-            
+
             for (section in descriptor$sections) {
                 if (length(section$subsections) == 0) {
                     sectionRet <- list()
-                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1)
+                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1, customElements)
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 } else {
                     sectionRet <- list()
@@ -187,20 +189,21 @@ KeboolaShiny <- setRefClass(
                         groups <- c(groups, subsection$title)
                     }
                     groups <- as.list(groups)
-                    
+                   
                     for (subsection in section$subsections) {
                         ld <- list()
-                        ld[[length(ld) + 1]] <- processSection(subsection, 2)
+                        ld[[length(ld) + 1]] <- processSection(subsection, 2, customElements)
                         sectionRet[[length(sectionRet) + 1]] <- tag('li', ld)
                     }
                     sectionRet[['class']] <- 'kb-enumeration'
                     ul <- tag('ul', sectionRet)
                     sectionRet <- list()
-                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1)
+                    sectionRet[[length(sectionRet) + 1]] <- processSection(section, 1, customElements)
                     sectionRet[[length(sectionRet) + 1]] <- ul
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 }
             }
+            options(oldOptions)
             contentRet
         }
     )
