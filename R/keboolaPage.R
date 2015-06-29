@@ -31,14 +31,13 @@ keboolaPage <- function(bootstrapPage) {
                     position: relative;
                     top: 10px;
                 }
-                
+                #loggedIn {
+                    margin-top: 10px;
+                }
                 .shiny-busy {
                     cursor: wait;
                 }
-                
-                .error {
-                    color: #ff0033;
-                }')),
+                ')),
             div(class="row",
                 
                 HTML('<div class="navbar navbar-default navbar-static-top kb-navbar-top">
@@ -62,7 +61,7 @@ keboolaPage <- function(bootstrapPage) {
                 conditionalPanel(
                     condition = "output.loggedIn != ''",
                     div(class="col-md-6 col-md-offset-3",
-                        HTML('<h3>Welcome to the shiny App Demo!</h3>
+                        HTML('<h3>Welcome!</h3>
                               <div class="well">
                               <div>You are seeing this message because I didn\'t find your storage api token in the HTTP headers</div>
                               <div>To continue, please enter your token on the left and click "Login"</div>
@@ -78,8 +77,7 @@ keboolaPage <- function(bootstrapPage) {
                 ),
                 div(class="container-fluid",
                     div(class="row",
-                        br(),
-                        div(class="well col-md-6 col-md-offset-3 shiny-html-output shiny-bound-output", id="loggedIn")
+                        div(class="col-md-6 col-md-offset-3 shiny-html-output shiny-bound-output", id="loggedIn")
                     )
                 )
             )
