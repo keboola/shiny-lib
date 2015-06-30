@@ -12,7 +12,10 @@ KeboolaShiny <- setRefClass(
         runId = 'character',
         bucket = 'character',
         loginMsg = 'character',
-        appMeta = 'list'
+        appName = 'character',
+        appDescription = 'character',
+        appVersion = 'character',
+        appDateCreated = 'character'
     ),
     methods = list(
         #' Constructor.
@@ -25,7 +28,18 @@ KeboolaShiny <- setRefClass(
             runId <<- .self$getRunId(session)()
             bucket <<- .self$getBucket(session)()
             loginMsg <<- .self$getLogin(session)()
-            appMeta <<- .self$getAppMeta(session)()
+            metaData <- .self$getAppMeta(session)()
+            if (is.null(metaData) | length(metaData) == 0) {
+		appName <<- ""
+                appDescription <<- ""
+                appVersion <<- ""
+                appDateCreated <<- ""                
+            }else {
+		appName <<- metaData[1,"name"]
+                appDescription <<- metaData[1,"description"]
+                appVersion <<- metaData[1,"version"]
+                appDateCreated <<- metaData[1,"dateCreated"]
+	    }
         },
 
         #' Get the runId from the query string
@@ -62,7 +76,7 @@ KeboolaShiny <- setRefClass(
         #' @return function closure to retrieve the token
         getToken = function(session) {
             reactive({
-                val <- as.character(session$request$HTTP_X_STORAGEAPI_TOKENs)
+                val <- as.character(session$request$HTTP_X_STORAGEAPI_TOKEN)
                 if (length(val) == 0) {
                     val <- as.character(session$input$token)
                     if (length(val) == 0) {
@@ -219,12 +233,14 @@ KeboolaShiny <- setRefClass(
                 if (token != '' & session$input$login) {    
                     client <- SapiClient$new(token)
                     appId <- as.character(gsub("[/]","",session$clientData$url_pathname))
-                    client$importTable("sys.c-shiny.apps",options=list(
-                        whereColumn="appId",
-                        whereValues=c(appId),
-                        columns=c("runId","name","description","version","dateCreated") 
-                    ))
-                }
+                    tryCatch({
+                        client$importTable("sys.c-shiny.Apps", options = list(whereColumn="appId",whereValues=c(appId),
+                                                                              columns=c("appId","name","description","version","dateCreated")))    
+                    },error = function(e){
+                        # probably development, so appId is not in the path
+                        NULL 
+                    })
+                }else NULL
             })        
         }
     )
