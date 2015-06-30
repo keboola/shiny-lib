@@ -11,7 +11,8 @@ KeboolaShiny <- setRefClass(
         token = 'character',
         runId = 'character',
         bucket = 'character',
-        loginMsg = 'character'
+        loginMsg = 'character',
+        appMeta = 'list'
     ),
     methods = list(
         #' Constructor.
@@ -24,6 +25,7 @@ KeboolaShiny <- setRefClass(
             runId <<- .self$getRunId(session)()
             bucket <<- .self$getBucket(session)()
             loginMsg <<- .self$getLogin(session)()
+            appMeta <<- .self$getAppMeta(session)()
         },
 
         #' Get the runId from the query string
@@ -205,6 +207,25 @@ KeboolaShiny <- setRefClass(
             }
             options(oldOptions)
             contentRet
+        },
+        
+        #'  Get the app meta-data from the sys.shiny.apps table
+        #'
+        #' @param session - the current shinyServer session object
+        #' @return list - containing members appId, name, description, dateCreated, version
+        #' @exportMethod
+        getAppMeta = function(session) {
+            reactive({
+                if (token != '' & session$input$login) {    
+                    client <- SapiClient$new(token)
+                    appId <- as.character(gsub("[/]","",session$clientData$url_pathname))
+                    client$importTable("sys.c-shiny.apps",options=list(
+                        whereColumn="appId",
+                        whereValues=c(appId),
+                        columns=c("runId","name","description","version","dateCreated") 
+                    ))
+                }
+            })        
         }
     )
 )
