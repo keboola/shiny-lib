@@ -130,6 +130,7 @@ KeboolaShiny <- setRefClass(
         #' @param tableNames Vector or character table names (without bucket) to be loaded
         #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
         #' @return list of data indexed by table name.
+        #' @exportMethod 
         loadTables = function(tableNames, progressBar = NULL) {
             if (is.null(.self$client)) {
                 stop("Not connected to SAPI.")
@@ -159,6 +160,9 @@ KeboolaShiny <- setRefClass(
         },
         
         
+        #' Get results descriptor from SAPI
+        #' @return nested list of elements.
+        #' @exportMethod 
         getDescriptor = function() {
             print("getDescriptor")
             tryCatch({
@@ -315,6 +319,10 @@ KeboolaShiny <- setRefClass(
             return(contentRet)
         },
 
+        #' Get common page header
+        #' @param character appTitle Application title
+        #' @return list of HTML elements
+        #' @exportMethod 
         commonPageHeader = function(appTitle) {
             ret <- list()
             ret[[length(ret) + 1]] <- tag('style', '
