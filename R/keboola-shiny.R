@@ -385,7 +385,27 @@ KeboolaShiny <- setRefClass(
                     )
                 )
             return(ret)
-        }
+        },
 
+        #' Get common page header
+        #' @param character appTitle Application title
+        #' @return list of HTML elements
+        #' @exportMethod 
+        commonPageLogin = function(appTitle) {
+            ret <- list()
+            ret[[length(ret) + 1]] <- 
+                h3(paste0('Welcome to the ', appTitle, ' application.'))
+            ret[[length(ret) + 1]] <-
+                div(class = "well",
+                    p("You are seeing this message because I didn\'t find your storage api token in the HTTP headers"),
+                    p("To continue, please enter your KBC token and click \'Login\'"),
+                    p("Cheers!")
+                )
+            ret[[length(ret) + 1]] <- 
+                textInput("token", "Enter KBC Token")
+            ret[[length(ret) + 1]] <- htmlOutput("loginMsg")
+            ret[[length(ret) + 1]] <- actionButton("login", "Login")
+            return(list(div(class = 'col-md-6 col-md-offset-3', ret)))
+        }
     )
 )
