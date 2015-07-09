@@ -11,7 +11,9 @@ KeboolaShiny <- setRefClass(
         errMsg = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         bucketId = 'character',
-        runId = 'character'
+        runId = 'character',
+        # last table loaded from SAPI 
+        lastTable = 'character'
     ),
     methods = list(
         #' Constructor.
@@ -79,8 +81,6 @@ KeboolaShiny <- setRefClass(
             token <- .self$getToken(request, input)
             runId <<- .self$getRunId(clientData)
             bucketId <<- .self$getBucket(clientData)
-            print("token")
-            print(token)
             errMsg <<- ""
             if (token != '') {
                 tryCatch({
@@ -153,8 +153,9 @@ KeboolaShiny <- setRefClass(
                     progressBar$set(value = 2)
                 }
                 for (tableName in tableNames) {
+                    lastTable <<- paste0(.self$bucketId, ".", tableName)
                     data <- .self$client$importTable(
-                        paste0(.self$bucketId, ".", tableName), 
+                        .self$lastTable,
                         options = list(whereColumn = "run_id", whereValues = .self$runId)
                     )
                     ret[[tableName]] <- data
@@ -166,7 +167,7 @@ KeboolaShiny <- setRefClass(
                 return(ret)
             }, error = function(e) {
                 # convert the error to a more descriptive message
-                stop(paste0("Error when loading data from SAPI (", e, ')'))
+                stop(paste0("Error when loading table ", .self$lastTable, " from SAPI (", e, ')'))
             })
         },
         
@@ -214,7 +215,6 @@ KeboolaShiny <- setRefClass(
         #' @param customElements - callback for processing custom elements
         #' @return list of HTML elements
         processSection = function(section, level, customElements) {
-            print("processSection")
             sectionRet <- list()
             if (level == 1) {
                 sectionRet[[length(sectionRet) + 1]] <- h2(section$title)
@@ -224,7 +224,6 @@ KeboolaShiny <- setRefClass(
             for (statement in section$statements) {
                 if (length(statement) > 0) {
                     statementRet <- list()
-                    print(paste0("Statement type: ", statement$type))
                     if (statement$type == 'text') {
                         statementRet[[length(statementRet) + 1]] <- 
                             HTML(
@@ -253,8 +252,6 @@ KeboolaShiny <- setRefClass(
                             } # else, ignore the row
                         }
                        
-                        print("Table")
-                        print(df)
                         if (nrow(df) > 0) {
                             tid <- stringi::stri_rand_strings(n = 1, length = 8, pattern = "[A-Za-z]")
                             statementRet[[length(statementRet) + 1]] <- 
@@ -281,7 +278,6 @@ KeboolaShiny <- setRefClass(
                     sectionRet[[length(sectionRet) + 1]] <- htmlDiv
                 }
             }
-            print("processSection exit")
             return(sectionRet)
         },
 
