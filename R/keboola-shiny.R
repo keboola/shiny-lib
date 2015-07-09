@@ -97,22 +97,33 @@ KeboolaShiny <- setRefClass(
                     errMsg <<- paste(.self$errMsg, "This application requires a valid bucket in the query string.")
                 }
                 if (.self$errMsg != '') {
-                    error <- paste(paste0("<label>Error :</label><span class='text-danger'>", .self$errMsg, "</span>"),
-                            paste("<label>token</label>", token, sep = " : "),
-                            paste("<label>bucket</label>", .self$bucketId, sep = " : "),
-                            paste("<label>runId</label>", .self$runId, sep = " : "), sep = "<br/>")
-                    # beware that loggedIn must be integer, otherwise it fails in conditionalPanel() !
+                    error <- div(
+                        class = "alert alert-danger",
+                         .self$errMsg,
+                         p(
+                             tag("label", "Token:"),
+                             token
+                         ),
+                         p(
+                             tag("label", "Bucket:"),
+                             .self$bucketId
+                         ),
+                         p(
+                             tag("label", "Run ID:"),
+                             .self$runId
+                         )
+                    )
                     print(paste0('error occured ', .self$errMsg))
                     loggedIn = 0
                 } else {
-                    error <- ''
+                    error <- div()
                     print('success')
                     loggedIn = 1
                 }
             } else {
                 print('token empty')
                 loggedIn = 0
-                error <- 'Please log in.'
+                error <- div(class = 'alert alert-warning', 'Please log in.')
             }
             print('getLogin exiting')
             list(
@@ -121,7 +132,7 @@ KeboolaShiny <- setRefClass(
                 bucket = .self$bucketId, 
                 loggedIn = loggedIn, 
                 errorMsg = error,
-                cleint = .self$client
+                client = .self$client
             )
         },
 
@@ -246,15 +257,12 @@ KeboolaShiny <- setRefClass(
                         print(df)
                         if (nrow(df) > 0) {
                             tid <- stringi::stri_rand_strings(n = 1, length = 8, pattern = "[A-Za-z]")
-                         #   statementRet[[length(statementRet) + 1]] <- shiny::renderDataTable(df)
                             statementRet[[length(statementRet) + 1]] <- 
-#                                print(xtable::xtable(df), type = 'html')
                                 DT::datatable(
                                     df,
                                     class = 'table display',
                                     caption = statement$details
                                )
-                            #library(DT)
                         }
                     } 
                     if ((statement$type == 'plot') || (statement$type == 'custom')) {
@@ -403,7 +411,7 @@ KeboolaShiny <- setRefClass(
                 )
             ret[[length(ret) + 1]] <- 
                 textInput("token", "Enter KBC Token")
-            ret[[length(ret) + 1]] <- htmlOutput("loginMsg")
+            ret[[length(ret) + 1]] <- uiOutput("loginMsg")
             ret[[length(ret) + 1]] <- actionButton("login", "Login")
             return(list(div(class = 'col-md-6 col-md-offset-3', ret)))
         }
