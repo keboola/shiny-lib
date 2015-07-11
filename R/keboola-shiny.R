@@ -215,6 +215,7 @@ KeboolaShiny <- setRefClass(
         #' @param customElements - callback for processing custom elements
         #' @return list of HTML elements
         processSection = function(section, level, customElements) {
+            print("processSection")
             sectionRet <- list()
             if (level == 1) {
                 sectionRet[[length(sectionRet) + 1]] <- h2(section$title)
@@ -224,6 +225,7 @@ KeboolaShiny <- setRefClass(
             for (statement in section$statements) {
                 if (length(statement) > 0) {
                     statementRet <- list()
+                    print(statement$type)
                     if (statement$type == 'text') {
                         statementRet[[length(statementRet) + 1]] <- 
                             HTML(
@@ -278,6 +280,7 @@ KeboolaShiny <- setRefClass(
                     sectionRet[[length(sectionRet) + 1]] <- htmlDiv
                 }
             }
+            print("processSection end")
             return(sectionRet)
         },
 
