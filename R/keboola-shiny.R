@@ -401,6 +401,16 @@ KeboolaShiny <- setRefClass(
         commonPageLogin = function(appTitle) {
             ret <- list()
             ret[[length(ret) + 1]] <- 
+            	tags$head(tags$script('
+            		$(function(){
+    					$("html").on("keypress","#token",function(e){
+        					if (e.keyCode == 13) {
+            					$("#login").trigger("click")
+        					}
+    					})
+					})'
+				))
+            ret[[length(ret) + 1]] <- 
                 h3(paste0('Welcome to the ', appTitle, ' application.'))
             ret[[length(ret) + 1]] <-
                 div(class = "well",
