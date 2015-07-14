@@ -413,6 +413,66 @@ KeboolaShiny <- setRefClass(
             ret[[length(ret) + 1]] <- uiOutput("loginMsg")
             ret[[length(ret) + 1]] <- actionButton("login", "Login")
             return(list(div(class = 'col-md-6 col-md-offset-3', ret)))
-        }
+        },
+        
+        
+        #' Convert LG type definition to an R data type
+        #' @param type LG data type string ('integer', 'datetime', etc.)
+        #' @param mode LG variable mode ('continuous', 'discrete')
+        #' @return string R data type name.
+        getConvertedDataType = function(type, mode) {  
+            if (type == "integer" | type == "float") {
+                ret <- "numeric"
+            } else if (type == "date") {
+                ret <- "date"
+            } else if (type == "datetime") {
+                ret <- "posix"
+            } else if (type == "string") {
+                if (mode == "continuous") {
+                    ret <- "character"
+                } else {
+                    ret <- "factor"
+                }
+            } else {
+                ret <- "factor"
+            }
+            return(ret)
+        },
+        
+        #' Apply column types detected by LG to a data frame.
+        #' @param types Data frame with contents of table with LG datatypes 
+        #'  (this table is usually named 'VAI__1__Actual' in SAPI)
+        #' @param cleanData A data frame with actual data, its columns are
+        #'  expected to be listed as rows in the types table.
+        #' @return data frame supplied in cleanData parameter with 
+        #'  applied data types.
+        #' @exportMethod 
+        getCleanData = function(types, cleanData) {   
+            # remove columns run_id and _timestamp which are internal only
+            cleanData <- cleanData[,!names(cleanData) %in% c("run_id", "_timestamp")]
+            out <- lapply(
+                1:length(cleanData),
+                FUN = function(i) {
+                    varName <- colnames(cleanData)[i]
+                    varType <- types[which(types$var_name == varName),]
+                    # there may be still multiple definitions if a job was executed repeatedly, so pick the first one
+                    type <- .self$getConvertedDataType(varType[1, "data_type"], varType[1, "mode"])
+                    FUN1 <- switch(
+                        type,
+                       "posix" = as.POSIXlt,
+                       "date" = as.Date,
+                       "character" = as.character,
+                       "numeric" = as.numeric,
+                       "factor" = as.factor
+                    )
+                    if (type == "date" || type == "posix") {
+                        cleanData[which(cleanData[,i] == ""), i] <- NA
+                    }
+                    FUN1(cleanData[,i])
+                }
+            )
+            names(out) <- colnames(cleanData)
+            return(as.data.frame(out))
+        }        
     )
 )
