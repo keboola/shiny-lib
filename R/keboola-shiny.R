@@ -430,8 +430,10 @@ KeboolaShiny <- setRefClass(
         #' @param type LG data type string ('integer', 'datetime', etc.)
         #' @param mode LG variable mode ('continuous', 'discrete')
         #' @return string R data type name.
-        getConvertedDataType = function(type, mode) {  
-            if (type == "integer" | type == "float") {
+        getConvertedDataType = function(type, mode) {
+            if (is.null(type) || is.na(type) || (length(type) == 0)) {
+                ret <- 'character'
+            } else if (type == "integer" || type == "float") {
                 ret <- "numeric"
             } else if (type == "date") {
                 ret <- "date"
