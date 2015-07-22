@@ -60,7 +60,7 @@ KeboolaShiny <- setRefClass(
         #' @param Shiny server session object
         #' @return function closure to retrieve the token
         getToken = function(request, input) {
-            val <- as.character(request$HTTP_X_STORAGEAPI_TOKENs)
+            val <- as.character(request$HTTP_X_STORAGEAPI_TOKEN)
             if (length(val) == 0) {
                 val <- as.character(input$token)
                 if (length(val) == 0) {
