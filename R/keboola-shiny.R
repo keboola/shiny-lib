@@ -238,7 +238,7 @@ KeboolaShiny <- setRefClass(
                         for (hint in statement$hints) {
                             statementRet[[length(statementRet) + 1]] <- 
                                 HTML(
-                                    paste0("<script>$('#", hint$id, "').attr('title', '", hint$hint, "');</script>")
+                                    paste0("<script>$('#", hint$id, "').attr('title', '", gsub("'", "\\'", hint$hint, fixed = TRUE), "');</script>")
                                 )
                         }
                     }
