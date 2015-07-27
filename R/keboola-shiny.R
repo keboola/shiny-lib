@@ -57,14 +57,19 @@ KeboolaShiny <- setRefClass(
         
         #' Get the token from the session headers or input element
         #' 
-        #' @param Shiny server session object
-        #' @return function closure to retrieve the token
-        getToken = function(request, input) {
+        #' @param request object to check header for token
+        #' @param input object to check text box for token
+        #' @param clientData to check url params for token
+        #' @return the supplied token
+        getToken = function(request, input, clientData) {
             val <- as.character(request$HTTP_X_STORAGEAPI_TOKEN)
             if (length(val) == 0) {
-                val <- as.character(input$token)
+                val <- as.character(parseQueryString(clientData$url_search)$token)
                 if (length(val) == 0) {
-                    val <- ''
+                    val <- as.character(input$token)
+                    if (length(val) == 0) {
+                        val <- ''
+                    }
                 }
             }
             return(val)
@@ -78,7 +83,7 @@ KeboolaShiny <- setRefClass(
         #' @exportMethod
         getLogin = function(request, input, clientData) {
             print("getLogin")
-            token <- .self$getToken(request, input)
+            token <- .self$getToken(request, input, clientData)
             runId <<- .self$getRunId(clientData)
             bucketId <<- .self$getBucket(clientData)
             errMsg <<- ""
