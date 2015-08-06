@@ -381,6 +381,9 @@ KeboolaShiny <- setRefClass(
             )
             ret[[length(ret) + 1]] <- 
                 div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
+                    div(style="display:none;",
+                        textInput("readyElem","hidden element", value="0")
+                    ),
                     div(class = "container-fluid",
                         div(class = "navbar-header",
                             a(class = "navbar-brand",
