@@ -3,7 +3,7 @@
 #' @param bootstrapPage Bootstrape page element
 #' @import shiny
 #' @export
-keboolaPage <- function(bootstrapPage) {
+keboolaPage <- function(page, appTitle="Default") {
     bootstrapPage(
         # basic application container divs
         div(
@@ -50,48 +50,46 @@ keboolaPage <- function(bootstrapPage) {
                     border-bottom: 1px dashed #333;
                 }
             ')),
-            div(class="row",
-                
-                HTML('<div class="navbar navbar-default navbar-static-top kb-navbar-top">
-                    <div class="container-fluid">
-                        <div class="navbar-header">
-                            <a class="navbar-brand" href="https://connection.keboola.com">
-                                <span class="kb-logo"></span>
-                                <span>Keboola Connection</span>
-                            </a>
-                        </div>
-                        <div class="collapse navbar-collapse">
-                            <div class="nav navbar-nav navbar-right navbar-brand kb-shiny-app-title shiny-text-output shiny-bound-output" id="appName">
-                            <!-- App Title will be written here -->
-                            </div>
-                        </div>
-                    </div>
-                </div>')
-                
-            ),
-            div(class="row",
-                conditionalPanel(
-                    condition = "output.loggedIn != ''",
-                    div(class="col-md-6 col-md-offset-3",
-                        HTML('<h3>Welcome!</h3>
-                              <div class="well">
-                              <div>You are seeing this message because I didn\'t find your storage api token in the HTTP headers</div>
-                              <div>To continue, please enter your token on the left and click "Login"</div>
-                              <div>Cheers!</div>
-                             </div>'),
-                        textInput("token", "Enter KBC Token"),
-                        actionButton("login","Login")
-                    )
+            div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
+                div(style="display:none;",
+                    textInput("readyElem","hidden element", value="0")
                 ),
-                conditionalPanel(
-                    condition = "output.loggedIn == ''",
-                    bootstrapPage    
-                ),
-                div(class="container-fluid",
-                    div(class="row",
-                        div(class="col-md-6 col-md-offset-3 shiny-html-output shiny-bound-output", id="loggedIn")
+                div(class = "container-fluid",
+                    div(class = "navbar-header",
+                        a(class = "navbar-brand",
+                          href = "https://connection.keboola.com",
+                          span(class = "kb-logo"),
+                          span("Keboola Connection")
+                        )
+                    ),
+                    div(class = "collapse navbar-collapse",
+                        div(class = "nav navbar-nav navbar-right navbar-brand kb-shiny-app-title",
+                            appTitle
+                        )
                     )
                 )
+            ),
+            
+            conditionalPanel(
+                condition = "output.loggedIn == 0",
+                div(class="col-md-6 col-md-offset-3",
+                    h3(paste0('Welcome to the ', appTitle, ' application.')),
+                    div(class = "well",
+                        p("You are seeing this message because I didn\'t find your storage api token in the HTTP headers"),
+                        p("To continue, please enter your KBC token and click \'Login\'"),
+                        p("Cheers!")
+                    ),
+                    textInput("token", "Enter KBC Token"),
+                    uiOutput("loginMsg"),
+                    actionButton("login","Login")
+                )
+            ),
+            conditionalPanel(
+                condition = "output.loggedIn == 1",
+                page   
+            ),
+            div(style = "visibility: hidden",
+                textOutput("loggedIn")
             )
         )
     )
