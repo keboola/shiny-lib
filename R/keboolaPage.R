@@ -5,6 +5,7 @@
 #' @export
 keboolaPage <- function(page, appTitle="Default") {
     bootstrapPage(
+        DT::datatable(data.frame()),
         # basic application container divs
         div(
             class="container-fluid",
@@ -62,9 +63,21 @@ keboolaPage <- function(page, appTitle="Default") {
                           span("Keboola Connection")
                         )
                     ),
+                    
+                    
                     div(class = "collapse navbar-collapse",
                         div(class = "nav navbar-nav navbar-right navbar-brand kb-shiny-app-title",
-                            appTitle
+                            fluidRow(
+                                column(2,
+                                    uiOutput("dataModalButton")     
+                                ),
+                                column(2,
+                                    uiOutput("settingsModalButton") 
+                                ),
+                                column(8,
+                                    appTitle
+                                )
+                            )
                         )
                     )
                 )

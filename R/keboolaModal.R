@@ -16,7 +16,7 @@ keboolaModalButton <- function(inputId, label, icon = NULL, title = "", content 
     # create the button  
     button <- tags$button(
         type = "button", 
-        class = "btn btn-info", 
+        class = "btn", 
         `data-toggle` = "modal", 
         `data-target` = paste0("#", inputId, sep = ""), 
         list(icon, label)
