@@ -39,30 +39,38 @@ KeboolaAppData <- setRefClass(
         #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
         #' @return list of data indexed by table name.
         #' @exportMethod 
-        loadTables = function(tableNames, progressBar = NULL) {
+        loadTables = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE)) {
             tryCatch({
-                ret <- list()
-                cntr <- 0
-                if (!is.null(progressBar)) {
+                if (options$progressBar) {
+                    progressBar <- shiny::Progress$new(session, min = 1, max = 120)
+                    progressBar$set(message = 'Retrieving Data', detail = 'This may take a while...')    
                     progressBar$set(value = 2)
                 }
-                for (tableName in tableNames) {
-                    lastTable <<- paste0(.self$bucket, ".", tableName)
-                    data <- .self$client$importTable(
+                ret <- list()
+                cntr <- 0
+                for (name in names(tables)) {
+                    lastTable <<- paste0(.self$bucket, ".", tables[[name]])
+                    ret[[name]] <- .self$client$importTable(
                         .self$lastTable,
                         options = list(whereColumn = "run_id", whereValues = .self$runId)
                     )
-                    ret[[tableName]] <- data
-                    if (!is.null(progressBar)) {
+                    if (options$progressBar) {
                         cntr <- cntr + 1
-                        progressBar$set(value = ((100 / length(tableNames)) * cntr))
+                        progressBar$set(value = ((100 / length(tables)) * cntr))
                     }
                 }
-                ret[["descriptor"]] <- .self$getDescriptor()
+                if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
+                    ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
+                    ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
+                }
+                if (options$progressBar) {
+                    progressBar$set(value = 100)
+                    progressBar$close()    
+                }
                 return(ret)
             }, error = function(e) {
                 # convert the error to a more descriptive message
-                stop(paste0("Error when loading table ", .self$lastTable, " from SAPI (", e, ')'))
+                stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
             })
         },
         
@@ -175,16 +183,20 @@ KeboolaAppData <- setRefClass(
         },
         
         #' Method returns HTML content for a descriptor 
-        #' @param descriptor - descriptor data
+        #' @param appTitle - title of the app
         #' @param customElements - callback for printing custom elements, signature: function(elementId, content)
         #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(descriptor, customElements) {
+        getDescription = function(appTitle, customElements) {
             print("getDescription")
+            if (is.null(.self$client)) {
+                return(NULL)
+            }
+            descriptor <- .self$getDescriptor()
             oldOptions <- options(stringsAsFactors = FALSE)
             contentRet <- list()
-            
+            contentRet[[length(contentRet) + 1]] <- h1(appTitle)
             for (section in descriptor$sections) {
                 if (length(section$subsections) == 0) {
                     sectionRet <- list()
@@ -297,6 +309,7 @@ KeboolaAppData <- setRefClass(
         },
         
         saveResultUI = function(session, dataToSave) {
+            write("Attempting to save data",stderr())
             if (is.null(dataToSave)) {
                 return(div())
             }
@@ -305,8 +318,7 @@ KeboolaAppData <- setRefClass(
                     lastSaveValue <<- as.numeric(session$input$saveIt)
                     print("Saving data")
                     tryCatch({
-                        client <- .self$client
-                        client$saveTable(dataToSave, session$input$outBucket, session$input$outTable)
+                        .self$client$saveTable(dataToSave(), session$input$outBucket, session$input$outTable)
                     }, error = function(e) {
                         ret <- div(class = 'alert alert-danger', paste0("Error saving table: ", e))
                     })
@@ -317,7 +329,6 @@ KeboolaAppData <- setRefClass(
             } else {
                 ret <- div()
             }
-            print("saveResult end")
             return(ret)
         },
         

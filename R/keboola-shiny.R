@@ -10,6 +10,7 @@ KeboolaShiny <- setRefClass(
     'KeboolaShiny',
     fields = list(
         loggedIn = 'numeric',
+        errMsg = 'character',
         loginErrorOutput = 'ANY',  # shiny.tag element containing login error message html
         bucketId = 'character',
         runId = 'character',
@@ -27,6 +28,7 @@ KeboolaShiny <- setRefClass(
         #' @exportMethod
         initialize = function() {
             loggedIn <<- 0
+            errMsg <<- ''
             loginErrorOutput <<- ''
             bucketId <<- ''
             runId <<- ''
@@ -102,31 +104,35 @@ KeboolaShiny <- setRefClass(
         #' @param the ShinySession object
         #' @return html string containing error message and field settings
         #' @exportMethod
-        getLogin = function(request, input, clientData) {
+        getLogin = function(session) {
+            request <- session$request
+            input <- session$input
+            clientData <- session$clientData
             print("getLogin")
             token <<- .self$getToken(request, input, clientData)
             runId <<- .self$getRunId(clientData)
             bucketId <<- .self$getBucket(clientData)
             appId <<- .self$getAppId(clientData)
-            errMsg <- ""
+            errMsg <<- ""
             if (token != '') {
                 tryCatch({
                     client <<- keboola.sapi.r.client::SapiClient$new(token)
-                    print("client successful")
+                    write("client successful",stderr())
                     kfig <<- KeboolaAppConfig$new(.self$client, .self$bucketId, .self$appId)
-                    print("keboola config lib loaded")
+                    write("keboola config lib loaded",stderr())
                     kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId)
-                    print("keboola data lib loaded")
+                    write("keboola data lib loaded",stderr())
                 }, error = function(e){
-                    errMsg <- paste0("Please make sure that the token is valid (", e, ").")
-                    print(paste("client not successful",e))
+                    errMsg <<- paste0("Please make sure that the token is valid (", e, ").")
+                    write(paste("client not successful",e),stderr())
                 })
                 if (.self$runId == "") {
-                    errMsg <- paste(errMsg, "This application requires a valid runId in the query string.")
+                    errMsg <<- paste(errMsg, "This application requires a valid runId in the query string.")
                 }
                 if (.self$bucketId == "") {
-                    errMsg <- paste(errMsg, "This application requires a valid bucket in the query string.")
+                    errMsg <<- paste(errMsg, "This application requires a valid bucket in the query string.")
                 }
+                write(paste("what is error message?",errMsg),stderr())
                 if (errMsg != '') {
                     error <- div(
                         class = "alert alert-danger",
@@ -168,45 +174,38 @@ KeboolaShiny <- setRefClass(
             )
         },
         
-        ###############################
-        ## KeboolaAppConfig Wrappers ##
-        ###############################
-        #'
-        
-        
-        ###############################
-        ##  KeboolaAppData Wrappers  ##
-        ###############################
-        #'
-        
         #' @exportMethod
-        loadTables = function(tableNames, progressBar = NULL) {
-            .self$kdat$loadTables(tableNames, progressBar)
+        loadTables = function(session, tables, options = list()) {
+            print("LT input ready")
+            return(
+                .self$kdat$loadTables(session, tables, options)
+            )
         },
         
         #' @exportMethod
-        getDescription = function(descriptor, customElements) {
-            .self$kdat$getDescription(descriptor, customElements)
-        },
-        
-        output = function(session, dataToSave = NULL) {
+        output = function(session, options = list(appTitle = "", dataToSave = NULL, configCallback = NULL, description = FALSE, customElements = NULL)) {
             ret <- list()
             ret$loginMsg <- renderUI({.self$loginErrorOutput})
-            print("attempting login element")
-            ret$loggedIn <- renderText(as.character(.self$loggedIn))
-            print("login element ok")
-            
+            ret$loggedIn <- renderText(as.character(.self$loggedIn))        
             if (.self$loggedIn == 1) {
-                print("attempting to readyElem")
-                updateTextInput(session,"readyElem",value="1")
-                print("readyElem ok")
-                ret$dataModalButton <- renderUI({.self$kdat$dataModalButton(session)})
-                ret$settingsModalButton <- renderUI({.self$kfig$settingsModalButton(session)})    
-                ret$saveResultUI <- renderUI({.self$kdat$saveResultUI(session,dataToSave)})
-            } else {
-                ret$dataModalButton <- renderUI({""})
-                ret$settingsModalButton <- renderUI({""})
-            }
+                write("we are logged in, and getting output elements",stderr())
+                if (!(is.null(options$dataToSave))) {
+                    ret$dataModalButton <- renderUI({.self$kdat$dataModalButton(session)})
+                    ret$saveResultUI <- renderUI({.self$kdat$saveResultUI(session,options$dataToSave)})
+                } else {
+                    ret$saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
+                }
+                if (options$description) {
+                    ret$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
+                }
+                if (!(is.null(options$configCallback))) {
+                    ret$settingsModalButton <- renderUI({.self$kfig$settingsModalButton(session)})
+                    ret$saveConfigUI <- renderUI({.self$kfig$saveConfigUI(session$input)})
+                    ret$saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI(session)})
+                    ret$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, configCallback)})
+                    ret$deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI(session)})
+                }
+            } 
             ret
         },
         

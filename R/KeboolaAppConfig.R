@@ -12,9 +12,9 @@ KeboolaAppConfig <- setRefClass(
         bucket = 'character',
         runId = 'character',
         appId = 'character',
-        lastLoadConfig = 'numeric',
-        lastSaveConfig = 'numeric',
-        lastDeleteConfig = 'numeric',
+        lastLoadConfigValue = 'numeric',
+        lastSaveConfigValue = 'numeric',
+        lastDeleteConfigValue = 'numeric',
         configDeleted = 'logical',
         shinyBaseUrl = 'character'
     ),
@@ -28,11 +28,11 @@ KeboolaAppConfig <- setRefClass(
         #' @exportMethod
         initialize = function(sapiClient, bucketId, appId, shinyUrl = "http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/") {
             if (is.null(client)) {
-                stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
+                stop("Can not initialize KeboolaAppConfig.  No valid Sapi Client available.")
             }   
-            lastLoadConfig <<- 0
-            lastSaveConfig <<- 0
-            lastDeleteConfig <<- 0
+            lastSaveConfigValue <<- 0
+            lastLoadConfigValue <<- 0
+            lastDeleteConfigValue <<- 0
             configDeleted <<- FALSE
             client <<- sapiClient
             bucket <<- bucketId
@@ -55,25 +55,27 @@ KeboolaAppConfig <- setRefClass(
            })
         },
         
-        #' Save Configuration Form (Prompts for a config Comment)
-        #' 
-        #' 
-        saveConfigForm = function(input) {
-            wellPanel(
-                uiOutput("saveConfigResultUI"),
-                div(
-                    textInput("configComment", "Add a comment:"),
-                    actionButton("saveConfigForReal", "Save")
+        saveConfigUI = function(input) {
+            ret <- list()
+            if ((input$saveConfig > 0) && (input$saveConfig %% 2 == 1)) {
+                ret <- wellPanel(
+                    uiOutput("saveConfigResultUI"),
+                    div(
+                        textInput("configComment", "Add a comment:"),
+                        actionButton("saveConfigForReal", "Save")
+                    )
                 )
-            )
+            }
+            ret
         },
         
-        saveConfigResult = function(session) {
+        
+        saveConfigResultUI = function(session) {
             input <- session$input
             if (input$saveConfigForReal > .self$lastSaveConfigValue) {
                 if (nchar(input$configComment) > 0) {
-                    lastSaveConfigValue <- input$saveConfigForReal
-                    print(paste("Saving configuration", lastSaveConfigValue))
+                    lastSaveConfigValue <<- input$saveConfigForReal
+                    write(paste("Saving configuration", lastSaveConfigValue), stderr())
                     tryCatch({
                         print("saving config")
                         .self$saveConfig(session)
@@ -92,42 +94,29 @@ KeboolaAppConfig <- setRefClass(
             return(list(ret)) 
         },
         
-        configs = function(session) {
-            #input <- session$input
-            #print(paste("input config settings", input$configSettings, "configDeleted", .self$configDeleted))
-            #if ((input$configSettings > 0 && input$configSettings %% 2 == 1) || .self$configDeleted) {
-            #    configDeleted <- FALSE
-                .self$getConfigs(session)
-            #}  
-        },
-        
-       
         configSettingsUI = function(session) {
             input <- session$input
-            print(paste("CSUI input config settings", input$configSettings, "configDeleted", .self$configDeleted))
-            #if ((input$configSettings > 0) && (input$configSettings %% 2 == 1)) {
-                print("getting configs")
-                configs <- .self$configs(session)
-                choices <- list()
-                for (config in configs) {
-                    choices[[paste(config$comment,config$dateCreated,sep=" -- ")]] = config$configId
-                }
-                print(paste("choices", choices))
-                ret <- div(style = 'margin-top: 20px',
-                           wellPanel(
-                               uiOutput("loadConfigResultUI"),
-                               uiOutput("deleteConfigResultUI"),
-                               selectInput("config","Configuration",c("None",choices)),
-                               actionButton("loadConfig", "Load Selected Configuration"),
-                               actionButton("deleteConfig", "Delete Selected Configuration", class="btn-warning"),
-                               div(style="text-align:right;margin-top:20px;",
-                                   actionButton("saveConfig", "Save Current Settings", class="btn-primary")
-                               ),
-                               uiOutput("saveConfigUI")
-                           ))
-                print("got configs")
-                ret
-            #}
+            print("getting configs")
+            configs <- .self$configs(session)
+            choices <- list()
+            for (config in configs) {
+                choices[[paste(config$comment,config$dateCreated,sep=" -- ")]] = config$configId
+            }
+            print(paste("choices", choices))
+            ret <- div(style = 'margin-top: 20px',
+                       wellPanel(
+                           uiOutput("loadConfigResultUI"),
+                           uiOutput("deleteConfigResultUI"),
+                           selectInput("config","Configuration",c("None",choices)),
+                           actionButton("loadConfig", "Load Selected Configuration"),
+                           actionButton("deleteConfig", "Delete Selected Configuration", class="btn-warning"),
+                           div(style="text-align:right;margin-top:20px;",
+                               actionButton("saveConfig", "Save Current Settings", class="btn-primary")
+                           ),
+                           uiOutput("saveConfigUI")
+                       ))
+            print("got configs")
+            ret
         },
         
         #' @exportMethod
@@ -141,10 +130,6 @@ KeboolaAppConfig <- setRefClass(
                     content = .self$configSettingsUI(session)
                 )
             )
-        },
-        
-        loadConfig = function(configId, callback = NULL) {
-           FALSE
         },
         
         #' @exportMethod
@@ -161,9 +146,38 @@ KeboolaAppConfig <- setRefClass(
            })    
         },
         
-        #' @exportMethod
-        configUI = function(session) {
-            FALSE
+        selectedConfig = function(input) {
+            if (input$loadConfig > 0 && input$loadConfig > lastLoadConfigValue) {
+                lastLoadConfigValue <<- input$loadConfig
+                configId <- input$config
+                configs <- configs()
+                config <- lapply(configs,function(config) {
+                    if (config$configId == configId) {
+                        jsonlite::fromJSON(config$configuration)
+                    } else {
+                        NULL
+                    }
+                })
+                Filter(Negate(is.null),config)[[1]]
+            }
+        },
+        
+        loadConfigResultUI = function(session,callback) {
+            input <- session$input
+            print(paste("loadConfig", input$loadConfig, "config", input$config))
+            ret <- list()
+            if (input$loadConfig > 0 && input$loadConfig > lastLoadConfig) {
+                tryCatch({
+                    config <- selectedConfig()
+                    callback(session, config)
+                }, error = function(e) {
+                    ret <- div(class = 'alert alert-danger', paste0("Error loading configuration: ", e))
+                })
+                ret <- div(class = 'alert alert-success', "Configuration successfully loaded.")
+                print("what? FU")
+                session$sendCustomMessage(type="background_task", message=list(message="Loaded up the selected configuration.",type="alert"))
+            }
+            ret
         }
     )
 )
