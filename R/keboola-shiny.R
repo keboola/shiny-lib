@@ -3,6 +3,8 @@
 #' @import methods
 #' @import shiny
 #' @import keboola.sapi.r.client
+#' @import KeboolaAppConfig
+#' @import KeboolaAppData
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 
@@ -182,12 +184,26 @@ KeboolaShiny <- setRefClass(
             )
         },
         
+        #' This method returns a list of all elements from the shared library that are destined for the shiny server output object
+        #' They are mainly renderUI functions, but can be any render function available in shiny
+        #' 
+        #' @param session - the shiny server session object
+        #' @param options - list of options to tell what objects to include
+        #'          appTitle - the title of the application
+        #'          dataToSave - the reactive in server.R that holds the input filtered data, or any data that would want to be saved to sapi
+        #'          configCallback - the method which is to be invoked when a configuration is loaded.  This method will generally update inputs according to the selectedConfig values
+        #'          description - whether or not to include a description object
+        #'          customElements - the method for processing custom elements of the description
         #' @exportMethod
         output = function(session, options = list(appTitle = "", dataToSave = NULL, configCallback = NULL, description = FALSE, customElements = NULL)) {
             ret <- list()
             ret$loginMsg <- renderUI({.self$loginErrorOutput})
             ret$loggedIn <- renderText(as.character(.self$loggedIn))        
-            if (.self$loggedIn == 1) {
+            if (.self$loggedIn == 1 && session$input$readyElem != '0') {
+                print("progress bar initiated")
+                progressBar <- shiny::Progress$new(session, min = 1, max = 100)
+                progressBar$set(message = 'Initializing', detail = 'Preparing components...')    
+                progressBar$set(value = 2)
                 write("we are logged in, and getting output elements",stderr())
                 if (!(is.null(options$dataToSave))) {
                     ret$dataModalButton <- renderUI({.self$kdat$dataModalButton(session)})
@@ -195,23 +211,25 @@ KeboolaShiny <- setRefClass(
                 } else {
                     ret$saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
                 }
+                progressBar$set(value=40)
                 if (options$description) {
-                    ret$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
+                    print("get description in klib")
+                    ret$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements, session)})
                 }
+                progressBar$set(value=60)
                 if (!(is.null(options$configCallback))) {
+                    print("init configs")
                     ret$settingsModalButton <- renderUI({.self$kfig$settingsModalButton(session)})
                     ret$saveConfigUI <- renderUI({.self$kfig$saveConfigUI(session$input)})
                     ret$saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI(session)})
-                    ret$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, configCallback)})
+                    ret$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, options$configCallback)})
                     ret$deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI(session)})
                 }
+                print("closing progress bar")
+                progressBar$set(value=100)
+                progressBar$close()
             } 
             ret
-        },
-        
-        #' @exportMethod
-        getCleanData = function(columnTypeTable, sourceDataTable) {
-            .self$kdat$getCleanData(columnTypeTable, sourceDataTable)
         }
     )
 )

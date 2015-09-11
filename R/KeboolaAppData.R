@@ -188,15 +188,22 @@ KeboolaAppData <- setRefClass(
         #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(appTitle, customElements) {
-            print("getDescription")
+        getDescription = function(appTitle, customElements, session) {
+            print("getDescription kdat")
             if (is.null(.self$client)) {
                 return(NULL)
             }
+            progressBar <- shiny::Progress$new(session, min = 1, max = 100)
+            progressBar$set(message = 'Initializing', detail = 'Preparing components...')    
+            progressBar$set(value = 2)
             descriptor <- .self$getDescriptor()
+            print("got descriptor kdat")
+            progressBar$set(value=40)
+            
             oldOptions <- options(stringsAsFactors = FALSE)
             contentRet <- list()
             contentRet[[length(contentRet) + 1]] <- h1(appTitle)
+            cntr <- 0
             for (section in descriptor$sections) {
                 if (length(section$subsections) == 0) {
                     sectionRet <- list()
@@ -222,7 +229,14 @@ KeboolaAppData <- setRefClass(
                     sectionRet[[length(sectionRet) + 1]] <- ul
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 }
+                cntr <- cntr + 1
+                print(paste("counter", cntr))
+                progressBar$set(value=40 + 60/length(descriptor$sections)*cntr)
+                print("processed section kdat")
             }
+            print("close progress bar kdat")
+            progressBar$set(value=100)
+            progressBar$close()
             options(oldOptions)
             print("getDescription exit")
             return(contentRet)
@@ -319,10 +333,13 @@ KeboolaAppData <- setRefClass(
                     print("Saving data")
                     tryCatch({
                         .self$client$saveTable(dataToSave(), session$input$outBucket, session$input$outTable)
+                        ret <- div(class = 'alert alert-success', paste0("Table successfully saved as ", session$input$outBucket, '.', session$input$outTable, "."))
                     }, error = function(e) {
-                        ret <- div(class = 'alert alert-danger', paste0("Error saving table: ", e))
+                        ret <- div(class = 'alert alert-danger', 
+                                   paste0("Error saving table: ", e, 
+                                        "\n Please note that table names may only contain alphanumeric characters, dashes '-', and underscores '_'"))
+                        write(paste("Error saving table:", e),stderr())
                     })
-                    ret <- div(class = 'alert alert-success', paste0("Table successfully saved as ", session$input$outBucket, '.', session$input$outTable, "."))
                 } else {
                     ret <- div(class = 'alert alert-warning', "Please enter table name.")
                 }
