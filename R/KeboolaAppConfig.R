@@ -70,7 +70,7 @@ KeboolaAppConfig <- setRefClass(
         selectedConfig = function(session) {
             input <- session$input    
             configId <- session$input$config
-            if (configId == "None") return(NULL)
+            if (is.null(configId) || configId == "None") return(NULL)
             configs <- .self$configs()()
             config <- lapply(configs,function(config) {
                 if (config$configId == configId) {
@@ -91,6 +91,8 @@ KeboolaAppConfig <- setRefClass(
                     paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config"),
                     query = list(bucket = .self$bucket)
                 )
+                print(paste("got", length(configs),"configs"))
+                print(configs)
                 return(configs)
             }, error = function(e) {
                 # convert the error to a more descriptive message
@@ -168,7 +170,9 @@ KeboolaAppConfig <- setRefClass(
         configSettingsUI = function(session) {
             input <- session$input
             ret <- list(
-                       div(style="text-align:right;padding:0 19px 15px 0;",
+                       helpText("Save your current input configuration to share with others or reload later. 
+                                You can also load previously saved configurations, or delete them as necessary."),
+                        div(style="text-align:right;padding:0 19px 15px 0;",
                            actionButton("saveConfig", "Save Current Settings", class="btn-primary")
                        ),
                        uiOutput("saveConfigUI"),

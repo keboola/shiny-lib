@@ -7,6 +7,7 @@ keboolaPage <- function(page, appTitle="Default") {
     bootstrapPage(
         DT::datatable(data.frame()),
         # basic application container divs
+        tags$head(tags$title(appTitle)),
         div(
             class="container-fluid",
             tags$head(tags$style('
@@ -23,6 +24,13 @@ keboolaPage <- function(page, appTitle="Default") {
                     padding: 15px 15px;
                 }
                 
+                .kb-toolbar-btn {
+                    padding-top:7px;
+                }
+
+                .modal-body .help-block {
+                    font-size: 14px;
+                }
                 .kb-logo {
                     background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
                     display: inline-block;
@@ -66,15 +74,15 @@ keboolaPage <- function(page, appTitle="Default") {
                     
                     
                     div(class = "collapse navbar-collapse",
-                        div(class = "nav navbar-nav navbar-right navbar-brand kb-shiny-app-title",
+                        div(class = "nav navbar-nav navbar-right navbar-brand",
                             fluidRow(
-                                column(2,
+                                column(2, class="kb-toolbar-btn",
                                     uiOutput("dataModalButton")     
                                 ),
-                                column(2,
+                                column(2, class="kb-toolbar-btn",
                                     uiOutput("settingsModalButton") 
                                 ),
-                                column(8,
+                                column(8, class="kb-shiny-app-title",
                                     appTitle
                                 )
                             )

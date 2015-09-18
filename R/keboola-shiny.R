@@ -8,6 +8,8 @@
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 
+source("KeboolaAppConfig.R")
+source("KeboolaAppData.R")
 KeboolaShiny <- setRefClass(
     'KeboolaShiny',
     fields = list(
@@ -206,7 +208,7 @@ KeboolaShiny <- setRefClass(
                 progressBar$set(value = 2)
                 write("we are logged in, and getting output elements",stderr())
                 if (!(is.null(options$dataToSave))) {
-                    ret$dataModalButton <- renderUI({.self$kdat$dataModalButton(session)})
+                    ret$dataModalButton <- renderUI({.self$kdat$dataModalButton(session,options$dataToSave)})
                     ret$saveResultUI <- renderUI({.self$kdat$saveResultUI(session,options$dataToSave)})
                 } else {
                     ret$saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
@@ -223,6 +225,7 @@ KeboolaShiny <- setRefClass(
                     ret$saveConfigUI <- renderUI({.self$kfig$saveConfigUI(session$input)})
                     ret$saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI(session)})
                     ret$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, options$configCallback)})
+                    ret$configListUI <- renderUI({.self$kfig$configListUI(session)})
                     ret$deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI(session)})
                 }
                 print("closing progress bar")
@@ -231,5 +234,6 @@ KeboolaShiny <- setRefClass(
             } 
             ret
         }
+        
     )
 )

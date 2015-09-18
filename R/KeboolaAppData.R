@@ -11,6 +11,7 @@ KeboolaAppData <- setRefClass(
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         bucket = 'character',
         runId = 'character',
+        localDescriptor = 'ANY',  # [HACK] hold the descriptor to prevent retrieving it multiple times
         lastSaveValue = 'numeric',
         # last table loaded from SAPI 
         lastTable = 'character'
@@ -30,6 +31,7 @@ KeboolaAppData <- setRefClass(
             client <<- sapiClient 
             bucket <<- bucketId
             runId <<- run_id
+            localDescriptor <<- NULL
             lastTable <<- ''
             lastSaveValue <<- 0
         },
@@ -39,7 +41,7 @@ KeboolaAppData <- setRefClass(
         #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
         #' @return list of data indexed by table name.
         #' @exportMethod 
-        loadTables = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE)) {
+        loadTables = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
             tryCatch({
                 if (options$progressBar) {
                     progressBar <- shiny::Progress$new(session, min = 1, max = 120)
@@ -62,6 +64,10 @@ KeboolaAppData <- setRefClass(
                 if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
                     ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
                     ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
+                }
+                if (options$descriptor) {
+                    localDescriptor <<- .self$getDescriptor()
+                    ret$descriptor <- .self$localDescriptor
                 }
                 if (options$progressBar) {
                     progressBar$set(value = 100)
@@ -196,7 +202,10 @@ KeboolaAppData <- setRefClass(
             progressBar <- shiny::Progress$new(session, min = 1, max = 100)
             progressBar$set(message = 'Initializing', detail = 'Preparing components...')    
             progressBar$set(value = 2)
-            descriptor <- .self$getDescriptor()
+            if (is.null(.self$localDescriptor)) {
+                localDescriptor <<- .self$getDescriptor()    
+            }
+            descriptor <- .self$localDescriptor
             print("got descriptor kdat")
             progressBar$set(value=40)
             
@@ -307,10 +316,12 @@ KeboolaAppData <- setRefClass(
         #' 
         #' @return List of html elements that make up the form
         #' @exportMethod
-        saveDataFormUI = function() {
+        saveDataFormUI = function(dataToSave) {
             buckets <- .self$client$listBuckets()
             bucketNames <- lapply(buckets, function(x) { x$id }) 
+            colnames <- paste(as.character(names(dataToSave())), collapse=", ")
             ret <- div(style = 'margin-top: 20px',
+                helpText(paste("Save your currently filtered data to SAPI.  The table will have the following columns:", colnames)),
                 wellPanel(
                     uiOutput("saveResultUI"),
                     div(
@@ -351,14 +362,14 @@ KeboolaAppData <- setRefClass(
         
         
         #' @exportMethod
-        dataModalButton = function(session) {
+        dataModalButton = function(session, dataToSave) {
             list(
                 keboolaModalButton(
                     "dataModal",
                     label = "",
-                    icon = icon("file"),
-                    title = "Data",
-                    content = .self$saveDataFormUI()
+                    icon = icon("save"),
+                    title = "Save Data to SAPI",
+                    content = .self$saveDataFormUI(dataToSave)
                 )
             )
         }
