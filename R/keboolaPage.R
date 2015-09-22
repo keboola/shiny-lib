@@ -28,9 +28,6 @@ keboolaPage <- function(page, appTitle="Default") {
                     padding-top:7px;
                 }
 
-                .modal-body .help-block {
-                    font-size: 14px;
-                }
                 .kb-logo {
                     background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
                     display: inline-block;

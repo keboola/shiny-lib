@@ -8,8 +8,6 @@
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 
-source("KeboolaAppConfig.R")
-source("KeboolaAppData.R")
 KeboolaShiny <- setRefClass(
     'KeboolaShiny',
     fields = list(
@@ -234,6 +232,5 @@ KeboolaShiny <- setRefClass(
             } 
             ret
         }
-        
     )
 )

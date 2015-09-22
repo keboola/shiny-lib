@@ -194,7 +194,7 @@ KeboolaAppData <- setRefClass(
         #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(appTitle, customElements, session) {
+        getDescription = function(appTitle, customElements, session, desc = NULL) {
             print("getDescription kdat")
             if (is.null(.self$client)) {
                 return(NULL)
@@ -202,10 +202,16 @@ KeboolaAppData <- setRefClass(
             progressBar <- shiny::Progress$new(session, min = 1, max = 100)
             progressBar$set(message = 'Initializing', detail = 'Preparing components...')    
             progressBar$set(value = 2)
-            if (is.null(.self$localDescriptor)) {
-                localDescriptor <<- .self$getDescriptor()    
+            if (!is.null(desc)) {
+                descriptor <- desc
+            } else {
+                if (is.null(.self$localDescriptor)) {
+                    localDescriptor <<- .self$getDescriptor()    
+                }
+                descriptor <- .self$localDescriptor    
             }
-            descriptor <- .self$localDescriptor
+            
+            
             print("got descriptor kdat")
             progressBar$set(value=40)
             

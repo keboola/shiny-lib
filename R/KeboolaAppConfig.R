@@ -70,6 +70,7 @@ KeboolaAppConfig <- setRefClass(
         selectedConfig = function(session) {
             input <- session$input    
             configId <- session$input$config
+            print(paste("session input config", configId))
             if (is.null(configId) || configId == "None") return(NULL)
             configs <- .self$configs()()
             config <- lapply(configs,function(config) {
@@ -91,8 +92,6 @@ KeboolaAppConfig <- setRefClass(
                     paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config"),
                     query = list(bucket = .self$bucket)
                 )
-                print(paste("got", length(configs),"configs"))
-                print(configs)
                 return(configs)
             }, error = function(e) {
                 # convert the error to a more descriptive message
@@ -170,9 +169,7 @@ KeboolaAppConfig <- setRefClass(
         configSettingsUI = function(session) {
             input <- session$input
             ret <- list(
-                       helpText("Save your current input configuration to share with others or reload later. 
-                                You can also load previously saved configurations, or delete them as necessary."),
-                        div(style="text-align:right;padding:0 19px 15px 0;",
+                       div(style="text-align:right;padding:0 19px 15px 0;",
                            actionButton("saveConfig", "Save Current Settings", class="btn-primary")
                        ),
                        uiOutput("saveConfigUI"),
@@ -251,7 +248,7 @@ KeboolaAppConfig <- setRefClass(
                     print("getting selected config")
                     config <- .self$selectedConfig(session)
                     print("calling the callback function")
-                    callback(session, config)
+                    callback(config)
                     print("callback executed")
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
                 }, error = function(e) {
