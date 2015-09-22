@@ -248,7 +248,7 @@ KeboolaAppConfig <- setRefClass(
                     print("getting selected config")
                     config <- .self$selectedConfig(session)
                     print("calling the callback function")
-                    callback(config)
+                    callback(session, config)
                     print("callback executed")
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
                 }, error = function(e) {
