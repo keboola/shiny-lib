@@ -20,7 +20,8 @@ KeboolaShiny <- setRefClass(
         appId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
-        kdat = 'ANY' # keboola.shiny.lib::KeboolaAppData
+        kdat = 'ANY', # keboola.shiny.lib::KeboolaAppData
+        useRunId = 'logical'
     ),
     methods = list(
         #' Constructor.
@@ -28,7 +29,7 @@ KeboolaShiny <- setRefClass(
         #' @param Optional name of data directory, if not supplied then
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function() {
+        initialize = function(requireRunId = TRUE) {
             loggedIn <<- 0
             errMsg <<- ''
             loginErrorOutput <<- ''
@@ -39,6 +40,7 @@ KeboolaShiny <- setRefClass(
             client <<- NULL
             kfig <<- NULL
             kdat <<- NULL
+            useRunId <<- requireRunId
         },
         
         #' Get the runId from the query string
@@ -122,13 +124,13 @@ KeboolaShiny <- setRefClass(
                     write("client successful",stderr())
                     kfig <<- KeboolaAppConfig$new(.self$client, .self$bucketId, .self$appId)
                     write("keboola config lib loaded",stderr())
-                    kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId)
+                    kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId)    
                     write("keboola data lib loaded",stderr())
                 }, error = function(e){
                     errMsg <<- paste0("Please make sure that the token is valid (", e, ").")
                     write(paste("client not successful",e),stderr())
                 })
-                if (.self$runId == "") {
+                if (.self$useRunId == TRUE && .self$runId == "") {
                     errMsg <<- paste(errMsg, "This application requires a valid runId in the query string.")
                 }
                 if (.self$bucketId == "") {
@@ -136,27 +138,32 @@ KeboolaShiny <- setRefClass(
                 }
                 write(paste("what is error message?",errMsg),stderr())
                 if (errMsg != '') {
+                    errorContent <- list(errMsg,
+                                      p(
+                                          tag("label", "Token:"),
+                                          .self$token
+                                      ),
+                                      p(
+                                          tag("label", "Bucket:"),
+                                          .self$bucketId
+                                      ))
+                    if (.self$useRunId) {
+                        errorContent[[length(errorContent) + 1]] <-
+                            p(
+                                tag("label", "Run ID:"),
+                                .self$runId
+                            )
+                    }
                     error <- div(
                         class = "alert alert-danger",
-                        errMsg,
-                        p(
-                            tag("label", "Token:"),
-                            .self$token
-                        ),
-                        p(
-                            tag("label", "Bucket:"),
-                            .self$bucketId
-                        ),
-                        p(
-                            tag("label", "Run ID:"),
-                            .self$runId
-                        )
+                        errorContent
                     )
                     print(paste0('error occured ', errMsg))
                     loggedIn <<- 0
                 } else {
                     error <- div()
                     print('success')
+                    updateTextInput(session,"readyElem",value="1")
                     loggedIn <<- 1
                 }
             } else {
@@ -176,9 +183,24 @@ KeboolaShiny <- setRefClass(
             )
         },
         
+        ready = function(session) {
+            if (!(is.null(session$input$readyElem)) && session$input$readyElem != "0") {
+                TRUE
+            } else {
+                FALSE
+            }
+        },
+        
         #' @exportMethod
-        loadTables = function(session, tables, options = list()) {
-            print("LT input ready")
+        loadTables = function(session, tables, options) {
+            # add defaults if they are missing
+            if (missing(options)) {
+                options <- list(
+                    progressBar = TRUE,
+                    cleanData = FALSE,
+                    descriptor = FALSE
+                )
+            }
             return(
                 .self$kdat$loadTables(session, tables, options)
             )

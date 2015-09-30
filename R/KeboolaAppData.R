@@ -30,7 +30,7 @@ KeboolaAppData <- setRefClass(
             }
             client <<- sapiClient 
             bucket <<- bucketId
-            runId <<- run_id
+            runId <<- run_id    
             localDescriptor <<- NULL
             lastTable <<- ''
             lastSaveValue <<- 0
@@ -51,10 +51,17 @@ KeboolaAppData <- setRefClass(
                 ret <- list()
                 cntr <- 0
                 for (name in names(tables)) {
+                    print(paste("loading table ", name, tables[[name]]))
                     lastTable <<- paste0(.self$bucket, ".", tables[[name]])
+                    opts <- NULL
+                    if (nchar(.self$runId) > 0) {
+                        print(paste("runid isnt null wtf?", .self$runId))
+                        opts <- list(whereColumn = "run_id", whereValues = .self$runId)
+                    }
+                    print(paste("did we get this far?",opts,"runId?", .self$runId))
                     ret[[name]] <- .self$client$importTable(
                         .self$lastTable,
-                        options = list(whereColumn = "run_id", whereValues = .self$runId)
+                        options = opts
                     )
                     if (options$progressBar) {
                         cntr <- cntr + 1
