@@ -179,7 +179,8 @@ KeboolaShiny <- setRefClass(
                 bucket = .self$bucketId, 
                 loggedIn = .self$loggedIn, 
                 errorMsg = error,
-                client = .self$client
+                client = .self$client,
+                ready = .self$ready(session)
             )
         },
         
