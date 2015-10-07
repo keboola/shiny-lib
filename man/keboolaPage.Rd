@@ -4,7 +4,7 @@
 \alias{keboolaPage}
 \title{Page Template for Keboola Shiny Apps}
 \usage{
-keboolaPage(bootstrapPage)
+keboolaPage(page, appTitle = "Default")
 }
 \arguments{
 \item{bootstrapPage}{Bootstrape page element}

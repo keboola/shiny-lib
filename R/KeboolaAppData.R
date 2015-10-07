@@ -2,7 +2,6 @@
 #'
 #' @import methods
 #' @import shiny
-#' @import keboola.shiny.lib
 #' @export KeboolaAppData
 #' @exportClass KeboolaAppData
 KeboolaAppData <- setRefClass(
@@ -86,7 +85,69 @@ KeboolaAppData <- setRefClass(
                 stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
             })
         },
+
         
+        #' Load tables from SAPI
+        #' @param tableNames Vector or character table names (without bucket) to be loaded
+        #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
+        #' @return list of data indexed by table name.
+        #' @exportMethod 
+        loadTablesDirect = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
+            tryCatch({
+                # get database credentials and connect to database
+                provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
+                credentials <- provisioningClient$getCredentials('transformations')$credentials 
+                db <- RedshiftDriver$new()
+                db$connect(
+                    credentials$host, 
+                    credentials$db,
+                    credentials$user,
+                    credentials$password,
+                    credentials$schema
+                )                
+                
+                if (options$progressBar) {
+                    progressBar <- shiny::Progress$new(session, min = 1, max = 120)
+                    progressBar$set(message = 'Retrieving Data', detail = 'This may take a while...')
+                    progressBar$set(value = 2)
+                }
+                ret <- list()
+                cntr <- 0
+                for (name in names(tables)) {
+                    print(paste("loading table ", name, tables[[name]]))
+                    lastTable <<- paste0("\"", .self$bucket, "\".\"", tables[[name]], "\"")
+                    opts <- NULL
+                    print(paste("did we get this far?",opts,"runId?", .self$runId))
+                    if (nchar(.self$runId) > 0) {
+                        ret[[name]] <- db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
+                    } else {
+                        ret[[name]] <- db$select(paste0("SELECT * FROM ", .self$lastTable))
+                    }
+                    if (options$progressBar) {
+                        cntr <- cntr + 1
+                        progressBar$set(value = ((100 / length(tables)) * cntr))
+                    }
+                }
+                if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
+                    ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
+                    ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
+                }
+                if (options$descriptor) {
+                    localDescriptor <<- .self$getDescriptor()
+                    ret$descriptor <- .self$localDescriptor
+                }
+                if (options$progressBar) {
+                    progressBar$set(value = 100)
+                    progressBar$close()    
+                }
+                return(ret)
+            }, error = function(e) {
+                # convert the error to a more descriptive message
+                stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
+            })
+        },
+        
+                
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
         getDescriptor = function() {

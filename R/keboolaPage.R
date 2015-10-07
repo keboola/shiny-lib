@@ -2,6 +2,7 @@
 #' 
 #' @param bootstrapPage Bootstrape page element
 #' @import shiny
+#' @import DT
 #' @export
 keboolaPage <- function(page, appTitle="Default") {
     bootstrapPage(

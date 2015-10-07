@@ -3,8 +3,8 @@
 #' @import methods
 #' @import shiny
 #' @import keboola.sapi.r.client
-#' @import KeboolaAppConfig
-#' @import KeboolaAppData
+#' @import keboola.provisioning.r.client
+#' @import keboola.redshift.r.client
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 
@@ -204,6 +204,21 @@ KeboolaShiny <- setRefClass(
             }
             return(
                 .self$kdat$loadTables(session, tables, options)
+            )
+        },
+
+        #' @exportMethod
+        loadTablesDirect = function(session, tables, options) {
+            # add defaults if they are missing
+            if (missing(options)) {
+                options <- list(
+                    progressBar = TRUE,
+                    cleanData = FALSE,
+                    descriptor = FALSE
+                )
+            }
+            return(
+                .self$kdat$loadTablesDirect(session, tables, options)
             )
         },
         
