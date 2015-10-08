@@ -1,8 +1,8 @@
 #' Page Template for Keboola Shiny Apps
 #' 
 #' @param bootstrapPage Bootstrape page element
-#' @import shiny
 #' @import DT
+#' @import shiny
 #' @export
 keboolaPage <- function(page, appTitle="Default") {
     bootstrapPage(

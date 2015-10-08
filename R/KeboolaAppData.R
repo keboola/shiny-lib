@@ -8,6 +8,7 @@ KeboolaAppData <- setRefClass(
     'KeboolaAppData',
     fields = list(
         client = 'ANY', # keboola.sapi.r.client::SapiClient
+        db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         bucket = 'character',
         runId = 'character',
         localDescriptor = 'ANY',  # [HACK] hold the descriptor to prevent retrieving it multiple times
@@ -23,7 +24,7 @@ KeboolaAppData <- setRefClass(
         #' @param run_id - the runId of the data to load
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection) {
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
@@ -33,6 +34,7 @@ KeboolaAppData <- setRefClass(
             localDescriptor <<- NULL
             lastTable <<- ''
             lastSaveValue <<- 0
+            db <<- dbConnection
         },
         
         #' Load tables from SAPI
@@ -94,17 +96,6 @@ KeboolaAppData <- setRefClass(
         #' @exportMethod 
         loadTablesDirect = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
             tryCatch({
-                # get database credentials and connect to database
-                provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-                credentials <- provisioningClient$getCredentials('transformations')$credentials 
-                db <- RedshiftDriver$new()
-                db$connect(
-                    credentials$host, 
-                    credentials$db,
-                    credentials$user,
-                    credentials$password,
-                    credentials$schema
-                )                
                 
                 if (options$progressBar) {
                     progressBar <- shiny::Progress$new(session, min = 1, max = 120)
@@ -119,9 +110,9 @@ KeboolaAppData <- setRefClass(
                     opts <- NULL
                     print(paste("did we get this far?",opts,"runId?", .self$runId))
                     if (nchar(.self$runId) > 0) {
-                        ret[[name]] <- db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
+                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
                     } else {
-                        ret[[name]] <- db$select(paste0("SELECT * FROM ", .self$lastTable))
+                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable))
                     }
                     if (options$progressBar) {
                         cntr <- cntr + 1
