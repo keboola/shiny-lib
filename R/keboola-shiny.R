@@ -172,10 +172,23 @@ KeboolaShiny <- setRefClass(
                     print(paste0('error occured ', errMsg))
                     loggedIn <<- 0
                 } else {
+                    # Login has been sucessful
                     error <- div()
                     print('success')
                     updateTextInput(session,"readyElem",value="1")
                     loggedIn <<- 1
+                    
+                    # get database credentials and connect to database
+                    provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
+                    credentials <- provisioningClient$getCredentials('transformations')$credentials 
+                    db <<- RedshiftDriver$new()
+                    db$connect(
+                        credentials$host, 
+                        credentials$db,
+                        credentials$user,
+                        credentials$password,
+                        credentials$schema
+                    )                        
                 }
             } else {
                 print('token empty')
@@ -183,18 +196,6 @@ KeboolaShiny <- setRefClass(
                 error <- div(class = 'alert alert-warning', 'Please log in.')
             }
             loginErrorOutput <<- error
-            
-            # get database credentials and connect to database
-            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-            credentials <- provisioningClient$getCredentials('transformations')$credentials 
-            db <<- RedshiftDriver$new()
-            db$connect(
-                credentials$host, 
-                credentials$db,
-                credentials$user,
-                credentials$password,
-                credentials$schema
-            )                
             
             print('getLogin exiting')
             list(
