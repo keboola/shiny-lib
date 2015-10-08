@@ -2,13 +2,13 @@
 #'
 #' @import methods
 #' @import shiny
-#' @import keboola.shiny.lib
 #' @export KeboolaAppData
 #' @exportClass KeboolaAppData
 KeboolaAppData <- setRefClass(
     'KeboolaAppData',
     fields = list(
         client = 'ANY', # keboola.sapi.r.client::SapiClient
+        db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         bucket = 'character',
         runId = 'character',
         localDescriptor = 'ANY',  # [HACK] hold the descriptor to prevent retrieving it multiple times
@@ -24,7 +24,7 @@ KeboolaAppData <- setRefClass(
         #' @param run_id - the runId of the data to load
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection) {
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
@@ -34,6 +34,7 @@ KeboolaAppData <- setRefClass(
             localDescriptor <<- NULL
             lastTable <<- ''
             lastSaveValue <<- 0
+            db <<- dbConnection
         },
         
         #' Load tables from SAPI
@@ -84,7 +85,58 @@ KeboolaAppData <- setRefClass(
                 stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
             })
         },
+
         
+        #' Load tables from SAPI
+        #' @param tableNames Vector or character table names (without bucket) to be loaded
+        #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
+        #' @return list of data indexed by table name.
+        #' @exportMethod 
+        loadTablesDirect = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
+            tryCatch({
+                
+                if (options$progressBar) {
+                    progressBar <- shiny::Progress$new(session, min = 1, max = 120)
+                    progressBar$set(message = 'Retrieving Data', detail = 'This may take a while...')
+                    progressBar$set(value = 2)
+                }
+                ret <- list()
+                cntr <- 0
+                for (name in names(tables)) {
+                    print(paste("loading table ", name, tables[[name]]))
+                    lastTable <<- paste0("\"", .self$bucket, "\".\"", tables[[name]], "\"")
+                    opts <- NULL
+                    print(paste("did we get this far?",opts,"runId?", .self$runId))
+                    if (nchar(.self$runId) > 0) {
+                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
+                    } else {
+                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable))
+                    }
+                    if (options$progressBar) {
+                        cntr <- cntr + 1
+                        progressBar$set(value = ((100 / length(tables)) * cntr))
+                    }
+                }
+                if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
+                    ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
+                    ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
+                }
+                if (options$descriptor) {
+                    localDescriptor <<- .self$getDescriptor()
+                    ret$descriptor <- .self$localDescriptor
+                }
+                if (options$progressBar) {
+                    progressBar$set(value = 100)
+                    progressBar$close()    
+                }
+                return(ret)
+            }, error = function(e) {
+                # convert the error to a more descriptive message
+                stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
+            })
+        },
+        
+                
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
         getDescriptor = function() {

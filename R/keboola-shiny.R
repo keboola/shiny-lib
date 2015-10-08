@@ -3,8 +3,8 @@
 #' @import methods
 #' @import shiny
 #' @import keboola.sapi.r.client
-#' @import KeboolaAppConfig
-#' @import KeboolaAppData
+#' @import keboola.provisioning.r.client
+#' @import keboola.redshift.r.client
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 
@@ -19,6 +19,7 @@ KeboolaShiny <- setRefClass(
         token = 'character',
         appId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
+        db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
         kdat = 'ANY', # keboola.shiny.lib::KeboolaAppData
         useRunId = 'logical'
@@ -38,6 +39,7 @@ KeboolaShiny <- setRefClass(
             appId <<- ''
             token <<- ''
             client <<- NULL
+            db <<- NULL
             kfig <<- NULL
             kdat <<- NULL
             useRunId <<- requireRunId
@@ -133,7 +135,7 @@ KeboolaShiny <- setRefClass(
                     write("client successful",stderr())
                     kfig <<- KeboolaAppConfig$new(.self$client, .self$bucketId, .self$appId)
                     write("keboola config lib loaded",stderr())
-                    kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId)    
+                    kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId, .self$db)    
                     write("keboola data lib loaded",stderr())
                 }, error = function(e){
                     errMsg <<- paste0("Please make sure that the token is valid (", e, ").")
@@ -181,6 +183,19 @@ KeboolaShiny <- setRefClass(
                 error <- div(class = 'alert alert-warning', 'Please log in.')
             }
             loginErrorOutput <<- error
+            
+            # get database credentials and connect to database
+            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
+            credentials <- provisioningClient$getCredentials('transformations')$credentials 
+            db <<- RedshiftDriver$new()
+            db$connect(
+                credentials$host, 
+                credentials$db,
+                credentials$user,
+                credentials$password,
+                credentials$schema
+            )                
+            
             print('getLogin exiting')
             list(
                 token = .self$token, 
@@ -213,6 +228,21 @@ KeboolaShiny <- setRefClass(
             }
             return(
                 .self$kdat$loadTables(session, tables, options)
+            )
+        },
+
+        #' @exportMethod
+        loadTablesDirect = function(session, tables, options) {
+            # add defaults if they are missing
+            if (missing(options)) {
+                options <- list(
+                    progressBar = TRUE,
+                    cleanData = FALSE,
+                    descriptor = FALSE
+                )
+            }
+            return(
+                .self$kdat$loadTablesDirect(session, tables, options)
             )
         },
         
