@@ -103,6 +103,15 @@ KeboolaShiny <- setRefClass(
             .self$appId
         },
         
+        #' Get the configId from the URL
+        #' 
+        #' @param clientData -- shiny session clientData object
+        #' @return configId or ""
+        #' @exportMethod
+        getConfigId = function(clientData) {
+            as.character(parseQueryString(clientData$url_search)$config)
+        },
+        
         #' Returns login status message or empty string if valid
         #' 
         #' @param the ShinySession object

@@ -55,10 +55,8 @@ KeboolaAppData <- setRefClass(
                     lastTable <<- paste0(.self$bucket, ".", tables[[name]])
                     opts <- NULL
                     if (nchar(.self$runId) > 0) {
-                        print(paste("runid isnt null wtf?", .self$runId))
                         opts <- list(whereColumn = "run_id", whereValues = .self$runId)
                     }
-                    print(paste("did we get this far?",opts,"runId?", .self$runId))
                     ret[[name]] <- .self$client$importTable(
                         .self$lastTable,
                         options = opts
