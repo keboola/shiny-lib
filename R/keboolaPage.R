@@ -5,59 +5,24 @@
 #' @import shiny
 #' @export
 keboolaPage <- function(page, appTitle="Default") {
+    addResourcePath(
+        prefix = 'components',
+        directoryPath = system.file('components', package='keboola.shiny.lib'))
+    
     bootstrapPage(
         DT::datatable(data.frame()),
         # basic application container divs
-        tags$head(tags$title(appTitle)),
+        singleton(tags$head(
+            tags$script(src = 'components/common.js'),
+            tags$link(rel = 'stylesheet',
+                      type = 'text/css',
+                      href = 'components/common.css'),
+            tags$title(appTitle)
+        )),
         div(
             class="container-fluid",
-            tags$head(tags$style('
-                .navbar .container-fluid {
-                  padding-left: 30px;
-                  padding-right: 30px;
-                }
-                
-                .navbar-brand {
-                    padding: 0;
-                }
-                
-                .kb-shiny-app-title {
-                    padding: 15px 15px;
-                }
-                
-                .kb-toolbar-btn {
-                    padding-top:7px;
-                }
-
-                .kb-logo {
-                    background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
-                    display: inline-block;
-                    width: 24px;
-                    height: 32px;
-                    position: relative;
-                    top: 10px;
-                }
-                #loggedIn {
-                    margin-top: 10px;
-                }
-                .shiny-busy {
-                    cursor: wait;
-                }         
-                .error {
-                    color: #ff0033;
-                }
-
-                .kb-example:before {
-                    content: "Example: "
-                }
-                .kb-example {
-                    color: #A4A4A4;
-                }
-                .kb-hint {
-                    border-bottom: 1px dashed #333;
-                }
-            ')),
             div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
+                textOutput("debug"),
                 div(style="display:none;",
                     textInput("readyElem","hidden element", value="0")
                 ),
@@ -90,7 +55,7 @@ keboolaPage <- function(page, appTitle="Default") {
             ),
             
             conditionalPanel(
-                condition = "output.loggedIn == 0",
+                condition = "input.loggedIn == 0",
                 div(class="col-md-6 col-md-offset-3",
                     h3(paste0('Welcome to the ', appTitle, ' application.')),
                     div(class = "well",
@@ -104,11 +69,24 @@ keboolaPage <- function(page, appTitle="Default") {
                 )
             ),
             conditionalPanel(
-                condition = "output.loggedIn == 1",
+                condition = "input.loggedIn == 1 && input.loading == 1",
+                div(id="init_panel", class="col-md-8 col-md-offset-2",
+                    h4("Environment Initialisation"),
+                    div(id="progress_panel", class="progress-panel container-fluid",""),
+                    conditionalPanel(
+                        condition = "input.detour == 1",
+                        uiOutput("problemTables")
+                    )
+                )
+            ),
+            conditionalPanel(
+                condition = "input.loggedIn == 1 && input.loading == 0",
                 page   
             ),
-            div(style = "visibility: hidden",
-                textOutput("loggedIn")
+            div(style = "display: none",
+                textInput("loggedIn","",value="0"),
+                textInput("loading","",value="0"),
+                textInput("detour","",value="0")
             )
         )
     )

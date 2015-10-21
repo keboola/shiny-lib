@@ -11,10 +11,11 @@ KeboolaAppData <- setRefClass(
         db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         bucket = 'character',
         runId = 'character',
-        localDescriptor = 'ANY',  # [HACK] hold the descriptor to prevent retrieving it multiple times
         lastSaveValue = 'numeric',
         # last table loaded from SAPI 
-        lastTable = 'character'
+        lastTable = 'character',
+        tableMaxMemory = 'numeric', #maximum allowed table size in bytes
+        sourceData = 'list' # Where we have the source data
     ),
     methods = list(
         #' Constructor.
@@ -24,118 +25,107 @@ KeboolaAppData <- setRefClass(
         #' @param run_id - the runId of the data to load
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, tableMaxMemory = 1000000) {
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
             client <<- sapiClient 
             bucket <<- bucketId
             runId <<- run_id    
-            localDescriptor <<- NULL
             lastTable <<- ''
             lastSaveValue <<- 0
             db <<- dbConnection
+            tableMaxMemory <<- tableMaxMemory
+            sourceData <<- list()
+        },
+        
+        loadTable = function(session, prettyName, table) {
+            print(paste("loading table ", prettyName, table))
+            session$sendCustomMessage(
+                type = "updateProgress",
+                message = list(
+                    id=paste0(table,"_progress"), 
+                    parentId="data_retrieval",
+                    text=paste("Retrieving", prettyName, "table."), value="In Progress", valueClass="text-primary"))
+            
+            lastTable <<- paste0("\"", .self$bucket, "\".\"", table, "\"")
+            opts <- NULL
+            
+            if (nchar(.self$runId) > 0) {
+                print("loading runid included table")
+                sourceData[[prettyName]] <<- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
+            } else {
+                sourceData[[prettyName]] <<- .self$db$select(paste0("SELECT * FROM ", .self$lastTable))
+            }    
+            session$sendCustomMessage(
+                type = "updateProgress",
+                message = list(
+                    id=paste0(table,"_progress"),
+                    parentId="data_retrieval",
+                    text=paste("Retrieving", prettyName, "table."), value="Completed", valueClass="text-success"))
+            
         },
         
         #' Load tables from SAPI
-        #' @param tableNames Vector or character table names (without bucket) to be loaded
-        #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
-        #' @return list of data indexed by table name.
+        #' @param tables list of tables ket as R variable, value as table name (without bucket)
+        #' @param options - list
+        #'                  cleanData boolean TRUE to compute datatypes of cleanData table
+        #'                  descriptor boolean TRUE to include descriptor in returned dataSet
+        #' @return list of data indexed by variable name given in tables argument keys.
         #' @exportMethod 
-        loadTables = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
+        loadTablesDirect = function(session, tables, options = list(cleanData = FALSE, descriptor = FALSE)) {
             tryCatch({
-                if (options$progressBar) {
-                    progressBar <- shiny::Progress$new(session, min = 1, max = 120)
-                    progressBar$set(message = 'Retrieving Data', detail = 'This may take a while...')    
-                    progressBar$set(value = 2)
-                }
-                ret <- list()
                 cntr <- 0
                 for (name in names(tables)) {
-                    print(paste("loading table ", name, tables[[name]]))
-                    lastTable <<- paste0(.self$bucket, ".", tables[[name]])
-                    opts <- NULL
-                    if (nchar(.self$runId) > 0) {
-                        opts <- list(whereColumn = "run_id", whereValues = .self$runId)
-                    }
-                    ret[[name]] <- .self$client$importTable(
-                        .self$lastTable,
-                        options = opts
-                    )
-                    if (options$progressBar) {
-                        cntr <- cntr + 1
-                        progressBar$set(value = ((100 / length(tables)) * cntr))
-                    }
+                    loadTable(session, name,tables[[name]])
+                    cntr <- cntr + 1
                 }
                 if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
-                    ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
-                    ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
+                    sourceData$columnTypes <<- .self$sourceData$columnTypes[,!names(.self$sourceData$columnTypes) %in% c("run_id")]
+                    sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanData)
                 }
                 if (options$descriptor) {
-                    localDescriptor <<- .self$getDescriptor()
-                    ret$descriptor <- .self$localDescriptor
-                }
-                if (options$progressBar) {
-                    progressBar$set(value = 100)
-                    progressBar$close()    
-                }
-                return(ret)
-            }, error = function(e) {
-                # convert the error to a more descriptive message
-                stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
-            })
-        },
-
-        
-        #' Load tables from SAPI
-        #' @param tableNames Vector or character table names (without bucket) to be loaded
-        #' @param progressBar Optional Shiny progress bar, it is assumed to be in range 1,100
-        #' @return list of data indexed by table name.
-        #' @exportMethod 
-        loadTablesDirect = function(session, tables, options = list(progressBar = TRUE, cleanData = FALSE, descriptor = FALSE)) {
-            tryCatch({
-                
-                if (options$progressBar) {
-                    progressBar <- shiny::Progress$new(session, min = 1, max = 120)
-                    progressBar$set(message = 'Retrieving Data', detail = 'This may take a while...')
-                    progressBar$set(value = 2)
-                }
-                ret <- list()
-                cntr <- 0
-                for (name in names(tables)) {
-                    print(paste("loading table ", name, tables[[name]]))
-                    lastTable <<- paste0("\"", .self$bucket, "\".\"", tables[[name]], "\"")
-                    opts <- NULL
-                    print(paste("did we get this far?",opts,"runId?", .self$runId))
-                    if (nchar(.self$runId) > 0) {
-                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
-                    } else {
-                        ret[[name]] <- .self$db$select(paste0("SELECT * FROM ", .self$lastTable))
-                    }
-                    if (options$progressBar) {
-                        cntr <- cntr + 1
-                        progressBar$set(value = ((100 / length(tables)) * cntr))
-                    }
-                }
-                if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
-                    ret$columnTypes <- ret$columnTypes[,!names(ret$columnTypes) %in% c("run_id")]
-                    ret$cleanData <- .self$getCleanData(ret$columnTypes, ret$cleanData)
-                }
-                if (options$descriptor) {
-                    localDescriptor <<- .self$getDescriptor()
-                    ret$descriptor <- .self$localDescriptor
-                }
-                if (options$progressBar) {
-                    progressBar$set(value = 100)
-                    progressBar$close()    
-                }
-                return(ret)
+                    session$sendCustomMessage(
+                        type = "updateProgress",
+                        message = list(
+                            id="descriptor_progress",
+                            parentId="data_retrieval",
+                            text="Retrieving summary table.", value="In Progress", valueClass="text-primary"))
+                    
+                    sourceData$descriptor <<- .self$getDescriptor()
+                    session$sendCustomMessage(
+                        type = "updateProgress",
+                        message = list(
+                            id="descriptor_progress",
+                            parentId="data_retrieval",
+                            text="Retrieving summary table.", value="Completed", valueClass="text-success"))
+                    
+                }   
+                TRUE
             }, error = function(e) {
                 # convert the error to a more descriptive message
                 stop(paste0("Error loading table ", .self$lastTable, " from SAPI (", e, ')'))
             })
         },
         
+        #' @exportMethod
+        checkTables = function(tables) {
+            problemTables <- list()
+            for (table in tables) {
+                fullTableName <- paste0(.self$bucket, ".", table)
+                print(paste("getting table meta",fullTableName))
+                tableMeta <- .self$client$getTable(fullTableName)
+                # check the table size
+                if (tableMeta$dataSizeBytes > .self$tableMaxMemory) {
+                    print(paste("table",fullTableName,"is greater than 100 megs, it has ", as.character(tableMeta$dataSizeBytes)))
+                    problemTables[[fullTableName]] <- tableMeta
+                    print(tableMeta)
+                } else {
+                    print(paste("table",fullTableName,"IS SMALL"))
+                }
+            }
+            problemTables
+        },
                 
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
@@ -256,21 +246,15 @@ KeboolaAppData <- setRefClass(
             if (is.null(.self$client)) {
                 return(NULL)
             }
-            progressBar <- shiny::Progress$new(session, min = 1, max = 100)
-            progressBar$set(message = 'Initializing', detail = 'Preparing components...')    
-            progressBar$set(value = 2)
+            
             if (!is.null(desc)) {
                 descriptor <- desc
             } else {
-                if (is.null(.self$localDescriptor)) {
-                    localDescriptor <<- .self$getDescriptor()    
+                if (is.null(.self$sourceData$descriptor)) {
+                    sourceData$descriptor <<- .self$getDescriptor()    
                 }
-                descriptor <- .self$localDescriptor    
+                descriptor <- .self$sourceData$descriptor
             }
-            
-            
-            print("got descriptor kdat")
-            progressBar$set(value=40)
             
             oldOptions <- options(stringsAsFactors = FALSE)
             contentRet <- list()
@@ -302,15 +286,11 @@ KeboolaAppData <- setRefClass(
                     contentRet[[length(contentRet) + 1]] <- tag('section', sectionRet)
                 }
                 cntr <- cntr + 1
-                print(paste("counter", cntr))
-                progressBar$set(value=40 + 60/length(descriptor$sections)*cntr)
-                print("processed section kdat")
+                # progressBar$set(value=40 + 60/length(descriptor$sections)*cntr)
+                print(paste("processed section", cntr))
             }
-            print("close progress bar kdat")
-            progressBar$set(value=100)
-            progressBar$close()
             options(oldOptions)
-            print("getDescription exit")
+            print("getDescription exit kdat")
             return(contentRet)
         },
         
@@ -423,7 +403,6 @@ KeboolaAppData <- setRefClass(
             return(ret)
         },
         
-        
         #' @exportMethod
         dataModalButton = function(session, dataToSave) {
             list(
@@ -433,6 +412,111 @@ KeboolaAppData <- setRefClass(
                     icon = icon("save"),
                     title = "Save Data to SAPI",
                     content = .self$saveDataFormUI(dataToSave)
+                )
+            )
+        },
+        
+        #' @exportMethod
+        previewData = function(session, tableMeta) {
+            reactive({
+                session$output[[paste0(tableMeta$name,"_columnFiltersUI")]] <- renderUI({
+                    lapply(session$input[[paste0(tableMeta$name,"_filters")]],function(arg){
+                        if (!is.null(session$input[[paste0(arg,"_filter")]])) {
+                            textInput(paste0(arg,"_filter"), paste(arg,"Filter"), value = session$input[[paste0(arg,"_filter")]])
+                        } else {
+                            textInput(paste0(arg,"_filter"), paste(arg,"Filter"))
+                        }
+                    })
+                })
+                refresh <- session$input[[paste0(tableMeta$name,"_refresh")]]
+                load <- session$input[[paste0(tableMeta$name,"_load")]]
+                
+                isolate({
+                    print(names(session$input))
+                    print(paste("my input", paste0(tableMeta$name,"_columns")))
+                    cols <- session$input[[paste0(tableMeta$name,"_columns")]]
+                    #cols <- session$input$testColumns
+                    print(cols)
+                    colstr <- paste(cols, collapse=", ")
+                    print(paste("COLSTR:", colstr))
+                    filters <- session$input[[paste0(tableMeta$name,"_filters")]]
+                    argstr <- ""
+                    arglist <- list()
+                    if (!is.null(filters) && length(filters) > 0) {
+                        for (filter in filters) {
+                            filterName <- paste0(filter,"_filter")
+                            print(paste("FILTER", filter))
+                            value <- session$input[[filterName]]
+                            arglist[[filter]] <- value
+                        }
+                        argstrings <- paste(names(arglist)," != ?")
+                        print(paste("ARGSTR:",argstrings))
+                        argstr <- paste("WHERE",paste(argstrings,collapse=" AND "))
+                        print(paste("ARGSTRRRRR:",argstr))
+                    }
+                    if (load > 0) {
+                        print("laod button clicked?")
+                        limit <- ""
+                    } else {
+                        limit <- " LIMIT 50"
+                    }
+                    query <- paste0("SELECT ",colstr," FROM \"", tableMeta$bucket$id, "\".\"",
+                                   tableMeta$name, "\"", argstr, limit)
+                    print(paste("previewData query:",query))
+                    dat <- .self$db$select(query,arglist)
+                    
+                    if (load > 0) {
+                        sourceData[[tableMeta$shinyName]] <<- dat
+                    }else {
+                        dat
+                    }
+                })
+            })
+        },
+        
+        #' @exportMethod
+        problemTablesTabset = function(session, problemTables) {
+            print(names(problemTables))
+            
+            tabs <- lapply(names(problemTables),function(table){
+                tableMeta <- problemTables[[table]]
+                tableMeta$shinyName <- table
+                tabPanel(tableMeta$name,.self$tableEditor(session, tableMeta))
+            })
+            do.call(tabsetPanel, tabs)
+        },
+        
+        #' @exportMethod
+        tableEditor = function(session, tableMeta) {   
+            
+            tags$div(class="tableEditor",
+                helpText(paste("The table", tableMeta$id, "was too large (", tableMeta$dataSizeBytes, 
+                                "bytes) to be fully loaded into the application environment (Max Allowed", as.character(.self$tableMaxMemory), "bytes).",
+                                " Please discard any columns that you believe will not be of interest")),
+                fluidRow(
+                    column(4,
+                        selectInput(paste0(tableMeta$name,"_columns"),"Keep These Columns",choices=tableMeta$columns,selected=tableMeta$columns,multiple=TRUE)
+                    ),
+                    column(8,
+                        fluidRow(
+                            helpText("Use these filters to EXCLUDE rows containing unwanted values for the selected variables"),
+                            column(6,
+                                selectInput(paste0(tableMeta$name,"_filters"),"Filter by a Column",choices=tableMeta$columns,multiple=TRUE)
+                                
+                            ),
+                            column(6,
+                                uiOutput(paste0(tableMeta$name,"_columnFiltersUI"))
+                            )
+                        )
+                    )
+                ),
+                fluidRow(
+                    column(4,actionButton(paste0(tableMeta$name,"_refresh"),"Refresh Data Preview", class="btn glyphicon-refresh")),
+                    column(8,actionButton(paste0(tableMeta$name,"_load"),"Load Selection", class='navbar-right btn-primary'))
+                ),
+                div(
+                    h4("Data Preview"),
+                    renderDataTable(previewData(session,tableMeta)(), options=list(searching=FALSE,info=FALSE))
                 )
             )
         }
