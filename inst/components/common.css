@@ -1,0 +1,48 @@
+.navbar .container-fluid {
+                  padding-left: 30px;
+                  padding-right: 30px;
+                }
+                
+                .navbar-brand {
+                    padding: 0;
+                }
+                
+                .kb-shiny-app-title {
+                    padding: 15px 15px;
+                }
+                
+                .kb-toolbar-btn {
+                    padding-top:7px;
+                }
+
+                .kb-logo {
+                    background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
+                    display: inline-block;
+                    width: 24px;
+                    height: 32px;
+                    position: relative;
+                    top: 10px;
+                }
+                #loggedIn {
+                    margin-top: 10px;
+                }
+                .shiny-busy {
+                    cursor: wait;
+                }         
+                .error {
+                    color: #ff0033;
+                }
+
+                .kb-example:before {
+                    content: "Example: "
+                }
+                .kb-example {
+                    color: #A4A4A4;
+                }
+                .kb-hint {
+                    border-bottom: 1px dashed #333;
+                }
+
+                #init_panel {
+                    padding-bottom: 20px;
+                }
