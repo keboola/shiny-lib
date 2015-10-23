@@ -14,8 +14,10 @@ KeboolaAppData <- setRefClass(
         lastSaveValue = 'numeric',
         # last table loaded from SAPI 
         lastTable = 'character',
-        tableMaxMemory = 'numeric', #maximum allowed table size in bytes
-        sourceData = 'list' # Where we have the source data
+        maxMemory = 'numeric', #maximum allowed table size in bytes
+        sourceData = 'list', # Where we have the source data
+        memoryUsage = 'numeric',
+        loadList = 'list'
     ),
     methods = list(
         #' Constructor.
@@ -23,9 +25,11 @@ KeboolaAppData <- setRefClass(
         #' @param sapiClient - Keboola.sapi.r.client::SapiClient
         #' @param bucketId - Bucket where config table is stored
         #' @param run_id - the runId of the data to load
+        #' @param dbConnection - an established database connection
+        #' @param maxMemory - maximum sourceData memory allocation
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, tableMaxMemory = 1000000) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000) {
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
@@ -35,8 +39,10 @@ KeboolaAppData <- setRefClass(
             lastTable <<- ''
             lastSaveValue <<- 0
             db <<- dbConnection
-            tableMaxMemory <<- tableMaxMemory
+            maxMemory <<- maxMemory
             sourceData <<- list()
+            memoryUsage <<- 0
+            loadList <<- list()
         },
         
         loadTable = function(session, prettyName, table) {
@@ -110,21 +116,22 @@ KeboolaAppData <- setRefClass(
         
         #' @exportMethod
         checkTables = function(tables) {
-            problemTables <- list()
-            for (table in tables) {
-                fullTableName <- paste0(.self$bucket, ".", table)
+            tableMetaList <- list()
+            for (table in names(tables)) {
+                fullTableName <- paste0(.self$bucket, ".", tables[[table]])
                 print(paste("getting table meta",fullTableName))
                 tableMeta <- .self$client$getTable(fullTableName)
                 # check the table size
-                if (tableMeta$dataSizeBytes > .self$tableMaxMemory) {
-                    print(paste("table",fullTableName,"is greater than 100 megs, it has ", as.character(tableMeta$dataSizeBytes)))
-                    problemTables[[fullTableName]] <- tableMeta
-                    print(tableMeta)
-                } else {
-                    print(paste("table",fullTableName,"IS SMALL"))
-                }
+                print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name))
+                memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)
+                print(paste("POST mem usage at",.self$memoryUsage, "table",tableMeta$name))
+                tableMetaList[[tables[[table]]]] <- tableMeta
             }
-            problemTables
+            if (.self$memoryUsage > .self$maxMemory) {
+                tableMetaList
+            } else {
+                FALSE
+            }
         },
                 
         #' Get results descriptor from SAPI
@@ -430,7 +437,7 @@ KeboolaAppData <- setRefClass(
                 })
                 refresh <- session$input[[paste0(tableMeta$name,"_refresh")]]
                 load <- session$input[[paste0(tableMeta$name,"_load")]]
-                
+                print(paste("LOAD?",load))
                 isolate({
                     print(names(session$input))
                     print(paste("my input", paste0(tableMeta$name,"_columns")))
@@ -454,19 +461,46 @@ KeboolaAppData <- setRefClass(
                         argstr <- paste("WHERE",paste(argstrings,collapse=" AND "))
                         print(paste("ARGSTRRRRR:",argstr))
                     }
-                    if (load > 0) {
-                        print("laod button clicked?")
+                    if (load > .self$loadList[[tableMeta$name]]) {
+                        print("laod button has been clicked")
                         limit <- ""
+                        session$sendCustomMessage(
+                            type = "updateProgress",
+                            message = list(
+                                id=paste0(tableMeta$name,"_progress"), 
+                                parentId="data_retrieval",
+                                text=paste("Retrieving", tableMeta$shinyName, "table."), value="In Progress", valueClass="text-primary"))
+                        
                     } else {
                         limit <- " LIMIT 50"
                     }
                     query <- paste0("SELECT ",colstr," FROM \"", tableMeta$bucket$id, "\".\"",
                                    tableMeta$name, "\"", argstr, limit)
                     print(paste("previewData query:",query))
+                    
                     dat <- .self$db$select(query,arglist)
                     
-                    if (load > 0) {
+                    if (load > .self$loadList[[tableMeta$name]]) {
+                        loadList[[tableMeta$name]] <<- load
                         sourceData[[tableMeta$shinyName]] <<- dat
+                        session$sendCustomMessage(
+                            type = "updateProgress",
+                            message = list(
+                                id=paste0(tableMeta$name,"_progress"), 
+                                parentId="data_retrieval",
+                                text=paste("Retrieved", tableMeta$shinyName, "table.",print(object.size(dat),units='b')," bytes used."), value="Completed", valueClass="text-success"))
+                        session$sendCustomMessage(
+                            type = "renameButton",
+                            message = list(
+                                    buttonId=paste0(tableMeta$name,"_load"),
+                                    text="Reload Selection"
+                                ))
+                        data.frame(
+                            status="Table successfully loaded.",
+                            memory=format(object.size(dat),units='auto'),
+                            rows=nrow(dat)
+                        )
+                        
                     }else {
                         dat
                     }
@@ -475,24 +509,31 @@ KeboolaAppData <- setRefClass(
         },
         
         #' @exportMethod
-        problemTablesTabset = function(session, problemTables) {
+        problemTablesUI = function(session, problemTables) {
             print(names(problemTables))
+            combinedTableMemory <- sum(unlist(lapply(problemTables,function(table) { table$dataSizeBytes })))
             
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
                 tableMeta$shinyName <- table
+                loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
                 tabPanel(tableMeta$name,.self$tableEditor(session, tableMeta))
             })
-            do.call(tabsetPanel, tabs)
+            
+            tabset <- do.call(tabsetPanel, tabs)
+            list(
+                div(class="alert alert-warning", 
+                    paste("The tables combine to (",combinedTableMemory,"Bytes).  This is greater than the memory limit (", .self$maxMemory, 
+                          "Bytes) for this application. ",
+                          "Please discard any columns that you believe will not be of interest,",
+                          "and/or remove rows with values that you know you don't want.")),
+                tabset
+            )
         },
         
         #' @exportMethod
         tableEditor = function(session, tableMeta) {   
-            
-            tags$div(class="tableEditor",
-                helpText(paste("The table", tableMeta$id, "was too large (", tableMeta$dataSizeBytes, 
-                                "bytes) to be fully loaded into the application environment (Max Allowed", as.character(.self$tableMaxMemory), "bytes).",
-                                " Please discard any columns that you believe will not be of interest")),
+            tags$div(id=tableMeta$name, class="tableEditor",
                 fluidRow(
                     column(4,
                         selectInput(paste0(tableMeta$name,"_columns"),"Keep These Columns",choices=tableMeta$columns,selected=tableMeta$columns,multiple=TRUE)
@@ -510,9 +551,9 @@ KeboolaAppData <- setRefClass(
                         )
                     )
                 ),
-                fluidRow(
-                    column(4,actionButton(paste0(tableMeta$name,"_refresh"),"Refresh Data Preview", class="btn glyphicon-refresh")),
-                    column(8,actionButton(paste0(tableMeta$name,"_load"),"Load Selection", class='navbar-right btn-primary'))
+                div(
+                    actionButton(paste0(tableMeta$name,"_load"),"Load Selection", class='navbar-right btn-primary table-editor-btn'),
+                    actionButton(paste0(tableMeta$name,"_refresh"),class="btn-primary navbar-right icon-refresh table-editor-btn",list(icon("refresh"),"Refresh Data Preview"))
                 ),
                 div(
                     h4("Data Preview"),

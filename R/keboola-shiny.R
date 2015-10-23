@@ -264,20 +264,14 @@ KeboolaShiny <- setRefClass(
             # checkTables will return a list of tables that are "too big" to load as is
             problemTables <- .self$kdat$checkTables(tables)
             print(paste("GOT MEM TRIGGER",names(problemTables)))
-            if (length(problemTables) > 0) {
+            if (!is.null(problemTables)) {
                 print("update text input")
                 updateTextInput(session, "detour", value="1")
+                
                 # we found that a table was too huge so we'll initiate diversion...
                 print("Some tables are TOO BIG")
                 session$output$problemTables <- renderUI(
-                    list(
-                        .self$kdat$problemTablesTabset(session, problemTables),
-                        fluidRow(
-                            column(6, div()),
-                            column(3, actionButton("cancel","Cancel")),
-                            column(3, actionButton("load", "Continue"))
-                        )
-                    )
+                    .self$kdat$problemTablesUI(session, problemTables)
                 )
                 FALSE    
             } else {

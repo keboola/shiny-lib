@@ -75,6 +75,7 @@ keboolaPage <- function(page, appTitle="Default") {
                     div(id="progress_panel", class="progress-panel container-fluid",""),
                     conditionalPanel(
                         condition = "input.detour == 1",
+                        id = "detourPanel",
                         uiOutput("problemTables")
                     )
                 )

@@ -46,3 +46,12 @@
                 #init_panel {
                     padding-bottom: 20px;
                 }
+                .kb-status-item div {
+                    border-bottom: 1px solid #e3e3e3;
+                }
+                .table-editor-btn{
+                    margin-left:15px;
+                }
+                .hidden{
+                    display:none;
+                }
