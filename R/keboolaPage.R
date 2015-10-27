@@ -13,18 +13,17 @@ keboolaPage <- function(page, appTitle="Default") {
         DT::datatable(data.frame()),
         # basic application container divs
         singleton(tags$head(
-            tags$script(src = 'components/common.js'),
+            tags$script(src = 'components/kb_common.js'),
             tags$link(rel = 'stylesheet',
                       type = 'text/css',
-                      href = 'components/common.css'),
+                      href = 'components/kb_common.css'),
             tags$title(appTitle)
         )),
         div(
             class="container-fluid",
             div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
-                textOutput("debug"),
                 div(style="display:none;",
-                    textInput("readyElem","hidden element", value="0")
+                    textInput("kb_readyElem","hidden element", value="0")
                 ),
                 div(class = "container-fluid",
                     div(class = "navbar-header",
@@ -38,10 +37,10 @@ keboolaPage <- function(page, appTitle="Default") {
                         div(class = "nav navbar-nav navbar-right navbar-brand",
                             fluidRow(
                                 column(2, class="kb-toolbar-btn",
-                                    uiOutput("dataModalButton")     
+                                    uiOutput("kb_dataModalButton")     
                                 ),
                                 column(2, class="kb-toolbar-btn",
-                                    uiOutput("settingsModalButton") 
+                                    uiOutput("kb_settingsModalButton") 
                                 ),
                                 column(8, class="kb-shiny-app-title",
                                     appTitle
@@ -53,7 +52,7 @@ keboolaPage <- function(page, appTitle="Default") {
             ),
             
             conditionalPanel(
-                condition = "input.loggedIn == 0",
+                condition = "input.kb_loggedIn == 0",
                 div(class="col-md-6 col-md-offset-3",
                     h3(paste0('Welcome to the ', appTitle, ' application.')),
                     div(class = "well",
@@ -61,32 +60,32 @@ keboolaPage <- function(page, appTitle="Default") {
                         p("To continue, please enter your KBC token and click \'Login\'"),
                         p("Cheers!")
                     ),
-                    textInput("token", "Enter KBC Token"),
-                    uiOutput("loginMsg"),
-                    actionButton("login","Login")
+                    textInput("kb_token", "Enter KBC Token"),
+                    uiOutput("kb_loginMsg"),
+                    actionButton("kb_login","Login")
                 )
             ),
             conditionalPanel(
-                condition = "input.loggedIn == 1 && input.loading == 1",
-                div(id="init_panel", class="col-md-8 col-md-offset-2",
+                condition = "input.kb_loggedIn == 1 && input.kb_loading == 1",
+                div(id="kb_init_panel", class="col-md-8 col-md-offset-2",
                     h4("Environment Initialisation"),
-                    div(id="progress_panel", class="progress-panel container-fluid",""),
-                    uiOutput("detourMessage"),
+                    div(id="kb_progress_panel", class="progress-panel container-fluid",""),
+                    uiOutput("kb_detourMessage"),
                     conditionalPanel(
-                        condition = "input.detour == 1",
-                        id = "detourPanel",
-                        uiOutput("problemTables")
+                        condition = "input.kb_detour == 1",
+                        id = "kb_detourPanel",
+                        uiOutput("kb_problemTables")
                     )
                 )
             ),
             conditionalPanel(
-                condition = "input.loggedIn == 1 && input.loading == 0",
+                condition = "input.kb_loggedIn == 1 && input.kb_loading == 0",
                 page   
             ),
             div(style = "display: none",
-                textInput("loggedIn","",value="0"),
-                textInput("loading","",value="0"),
-                textInput("detour","",value="0")
+                textInput("kb_loggedIn","",value="0"),
+                textInput("kb_loading","",value="0"),
+                textInput("kb_detour","",value="0")
             )
         )
     )

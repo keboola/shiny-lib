@@ -7,6 +7,7 @@
 KeboolaAppData <- setRefClass(
     'KeboolaAppData',
     fields = list(
+        session = 'ANY', # shiny server session
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         bucket = 'character',
@@ -27,12 +28,18 @@ KeboolaAppData <- setRefClass(
         #' @param run_id - the runId of the data to load
         #' @param dbConnection - an established database connection
         #' @param maxMemory - maximum sourceData memory allocation
-        #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 100000000) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 100000000, session = getDefaultReactiveDomain()) {
+            
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
+            
+            if (!inherits(session, "ShinySession"))
+                stop("'session' is not a ShinySession object.")
+            
+            session <<- session
+            
             client <<- sapiClient 
             bucket <<- bucketId
             runId <<- run_id    
@@ -46,7 +53,13 @@ KeboolaAppData <- setRefClass(
             allLoaded <<- FALSE
         },
         
-        loadTable = function(session, prettyName, table) {
+        #' Inernal Method to retrieve table data from redshift 
+        #' 
+        #' @param session - shiny server session
+        #' @param prettyName - table name to be used in labels throughout the app
+        #' @param table - name of table in SAPI
+        #' 
+        loadTable = function(prettyName, table) {
             print(paste("loading table ", prettyName, table))
             session$sendCustomMessage(
                 type = "updateProgress",
@@ -80,19 +93,19 @@ KeboolaAppData <- setRefClass(
         #'                  descriptor boolean TRUE to include descriptor in returned dataSet
         #' @return list of data indexed by variable name given in tables argument keys.
         #' @exportMethod 
-        loadTablesDirect = function(session, tables, options = list(cleanData = FALSE, descriptor = FALSE)) {
+        loadTablesDirect = function(tables, options = list(cleanData = FALSE, descriptor = FALSE)) {
             tryCatch({
-                cntr <- 0
                 for (name in names(tables)) {
-                    loadTable(session, name,tables[[name]])
-                    cntr <- cntr + 1
+                    loadTable(name,tables[[name]])
                 }
+                # Apply data type setting if the cleandata columns are present and the option is set
                 if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
                     sourceData$columnTypes <<- .self$sourceData$columnTypes[,!names(.self$sourceData$columnTypes) %in% c("run_id")]
                     sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanData)
                 }
+                # Retrieve descriptor if option is set
                 if (options$descriptor) {
-                    sourceData$descriptor <<- .self$getDescriptor(session)
+                    sourceData$descriptor <<- .self$getDescriptor()
                 }   
                 TRUE
             }, error = function(e) {
@@ -101,6 +114,10 @@ KeboolaAppData <- setRefClass(
             })
         },
         
+        #' Checks the table list to see if maximum application memory will be exceeded by retrieving the data
+        #' 
+        #' @param tables - list of tables to load from SAPI
+        #' @return if memory exceeded - a list of table meta data for each requested table, else NULL
         #' @exportMethod
         checkTables = function(tables) {
             tableMetaList <- list()
@@ -124,7 +141,7 @@ KeboolaAppData <- setRefClass(
                 
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
-        getDescriptor = function(session) {
+        getDescriptor = function() {
             print("getDescriptor")
             session$sendCustomMessage(
                 type = "updateProgress",
@@ -246,7 +263,7 @@ KeboolaAppData <- setRefClass(
         #'  function should return a single HTML element. Pass NULL to ignore custom elements.
         #'
         #' @exportMethod
-        getDescription = function(appTitle, customElements, session, desc = NULL) {
+        getDescription = function(appTitle, customElements, desc = NULL) {
             print("getDescription kdat")
             if (is.null(.self$client)) {
                 return(NULL)
@@ -256,7 +273,7 @@ KeboolaAppData <- setRefClass(
                 descriptor <- desc
             } else {
                 if (is.null(.self$sourceData$descriptor)) {
-                    sourceData$descriptor <<- .self$getDescriptor(session)    
+                    sourceData$descriptor <<- .self$getDescriptor()    
                 }
                 descriptor <- .self$sourceData$descriptor
             }
@@ -371,28 +388,28 @@ KeboolaAppData <- setRefClass(
             ret <- div(style = 'margin-top: 20px',
                 helpText(paste("Save your currently filtered data to SAPI.  The table will have the following columns:", colnames)),
                 wellPanel(
-                    uiOutput("saveResultUI"),
+                    uiOutput("kb_saveResultUI"),
                     div(
-                        selectInput("outBucket", "Storage bucket", choices = bucketNames, selected = .self$bucket),
-                        textInput("outTable", "Table Name"),
-                        actionButton("saveIt", "Save It")
+                        selectInput("kb_outBucket", "Storage bucket", choices = bucketNames, selected = .self$bucket),
+                        textInput("kb_outTable", "Table Name"),
+                        actionButton("kb_saveIt", "Save It")
                     )
                 )
             )    
         },
         
-        saveResultUI = function(session, dataToSave) {
+        saveResultUI = function(dataToSave) {
             write("Attempting to save data",stderr())
             if (is.null(dataToSave)) {
                 return(div())
             }
-            if (session$input$saveIt > .self$lastSaveValue) {
-                if (nchar(session$input$outTable) > 0) {
-                    lastSaveValue <<- as.numeric(session$input$saveIt)
+            if (session$input$kb_saveIt > .self$lastSaveValue) {
+                if (nchar(session$input$kb_outTable) > 0) {
+                    lastSaveValue <<- as.numeric(session$input$kb_saveIt)
                     print("Saving data")
                     tryCatch({
-                        .self$client$saveTable(dataToSave(), session$input$outBucket, session$input$outTable)
-                        ret <- div(class = 'alert alert-success', paste0("Table successfully saved as ", session$input$outBucket, '.', session$input$outTable, "."))
+                        .self$client$saveTable(dataToSave(), session$input$kb_outBucket, session$input$kb_outTable)
+                        ret <- div(class = 'alert alert-success', paste0("Table successfully saved as ", session$input$kb_outBucket, '.', session$input$kb_outTable, "."))
                     }, error = function(e) {
                         ret <- div(class = 'alert alert-danger', 
                                    paste0("Error saving table: ", e, 
@@ -409,10 +426,10 @@ KeboolaAppData <- setRefClass(
         },
         
         #' @exportMethod
-        dataModalButton = function(session, dataToSave) {
+        dataModalButton = function(dataToSave) {
             list(
                 keboolaModalButton(
-                    "dataModal",
+                    "kb_dataModal",
                     label = "",
                     icon = icon("save"),
                     title = "Save Data to SAPI",
@@ -422,29 +439,29 @@ KeboolaAppData <- setRefClass(
         },
         
         #' @exportMethod
-        previewData = function(session, tableMeta) {
+        previewData = function(tableMeta) {
             reactive({
-                session$output[[paste0(tableMeta$name,"_columnFiltersUI")]] <- renderUI({
-                    lapply(session$input[[paste0(tableMeta$name,"_filters")]],function(arg){
-                        if (!is.null(session$input[[paste0(arg,"_filter")]])) {
-                            textInput(paste0(arg,"_filter"), paste(arg,"Filter"), value = session$input[[paste0(arg,"_filter")]])
+                session$output[[paste0("kb_",tableMeta$name,"_columnFiltersUI")]] <- renderUI({
+                    lapply(session$input[[paste0("kb_",tableMeta$name,"_filters")]],function(arg){
+                        if (!is.null(session$input[["kb_",paste0(arg,"_filter")]])) {
+                            textInput("kb_",paste0(arg,"_filter"), paste(arg,"Filter"), value = session$input[["kb_",paste0(arg,"_filter")]])
                         } else {
-                            textInput(paste0(arg,"_filter"), paste(arg,"Filter"))
+                            textInput(paste0("kb_",arg,"_filter"), paste(arg,"Filter"))
                         }
                     })
                 })
-                refresh <- session$input[[paste0(tableMeta$name,"_refresh")]]
-                load <- as.numeric(session$input[[paste0(tableMeta$name,"_load")]])
+                refresh <- session$input[[paste0("kb_",tableMeta$name,"_refresh")]]
+                load <- as.numeric(session$input[[paste0("kb_",tableMeta$name,"_load")]])
                 isolate({
-                    cols <- session$input[[paste0(tableMeta$name,"_columns")]]
+                    cols <- session$input[[paste0("kb_",tableMeta$name,"_columns")]]
                     colstr <- paste(cols, collapse=", ")
                     print(paste("COLSTR:", colstr))
-                    filters <- session$input[[paste0(tableMeta$name,"_filters")]]
+                    filters <- session$input[[paste0("kb_",tableMeta$name,"_filters")]]
                     argstr <- ""
                     arglist <- list()
                     if (!is.null(filters) && length(filters) > 0) {
                         for (filter in filters) {
-                            filterName <- paste0(filter,"_filter")
+                            filterName <- paste0("kb_",filter,"_filter")
                             value <- session$input[[filterName]]
                             arglist[[filter]] <- value
                         }
@@ -459,7 +476,7 @@ KeboolaAppData <- setRefClass(
                         session$sendCustomMessage(
                             type = "updateProgress",
                             message = list(
-                                id=paste0(tableMeta$name,"_progress"), 
+                                id=paste0("kb_",tableMeta$name,"_progress"), 
                                 parentId="data_retrieval",
                                 text=paste("Retrieving", tableMeta$shinyName, "table."), value="In Progress", valueClass="text-primary"))
                         
@@ -480,13 +497,13 @@ KeboolaAppData <- setRefClass(
                         session$sendCustomMessage(
                             type = "updateProgress",
                             message = list(
-                                id=paste0(tableMeta$name,"_progress"), 
+                                id=paste0("kb_",tableMeta$name,"_progress"), 
                                 parentId="data_retrieval",
                                 text=paste("Retrieved", tableMeta$shinyName, "table.",print(object.size(dat),units='b')," bytes used."), value="Completed", valueClass="text-success"))
                         session$sendCustomMessage(
                             type = "renameButton",
                             message = list(
-                                    buttonId=paste0(tableMeta$name,"_load"),
+                                    buttonId=paste0("kb_",tableMeta$name,"_load"),
                                     text="Reload Selection"
                                 ))
                         
@@ -496,7 +513,7 @@ KeboolaAppData <- setRefClass(
                             rows=nrow(dat)
                         )
                     }
-                    .self$setMemoryUsage(session, tableMeta)
+                    .self$setMemoryUsage(tableMeta)
                     if (.self$allLoaded) {
                         print(paste("ALL LOADED NAMES", names(.self$sourceData)))
                     }
@@ -506,7 +523,7 @@ KeboolaAppData <- setRefClass(
         },
         
         #' 
-        setMemoryUsage = function(session,tableMeta) {
+        setMemoryUsage = function(tableMeta) {
             memoryUsage <<- 0
             
             print(paste("LOAD LIST",names(.self$loadList)))
@@ -525,17 +542,17 @@ KeboolaAppData <- setRefClass(
                 }
             }
             if (.self$allLoaded && .self$memoryUsage < .self$maxMemory) {
-                session$output$detourMessage <- 
+                session$output$kb_detourMessage <- 
                     renderUI(
-                        div(class="alert alert-success", 
-                            div(
+                        fluidRow(class="alert alert-success", 
+                            column(9,div(
                                 paste("The tables combine to (",as.character(.self$memoryUsage),"Bytes).  This is less than the memory limit (", .self$maxMemory, 
-                                      "Bytes) for this application. ")),
-                            actionButton("kb_continue", "Continue", class="navbar-right")
+                                      "Bytes) for this application. "))),
+                            column(3,actionButton("kb_continue", "Continue", class="navbar-right"))
                         )    
                     )
             }else {
-                session$output$detourMessage <- 
+                session$output$kb_detourMessage <- 
                     renderUI(
                         div(class="alert alert-warning", 
                             paste("The tables combine to (",as.character(.self$memoryUsage),"Bytes).  This is greater than the memory limit (", .self$maxMemory, 
@@ -547,12 +564,12 @@ KeboolaAppData <- setRefClass(
         },
         
         #' @exportMethod
-        problemTablesUI = function(session, problemTables) {
+        problemTablesUI = function(problemTables) {
             
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
                 loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
-                tabPanel(tableMeta$name,.self$tableEditor(session, tableMeta))
+                tabPanel(tableMeta$name,.self$tableEditor(tableMeta))
             })
             
             do.call(tabsetPanel, tabs)
@@ -560,35 +577,32 @@ KeboolaAppData <- setRefClass(
         },
         
         #' @exportMethod
-        tableEditor = function(session, tableMeta) {   
-            #if (.self$loadList[[tableMeta]] > 0){
-            #    msg <- div("Table loaded.")
-            #}
+        tableEditor = function(tableMeta) {   
             tags$div(id=tableMeta$name, class="tableEditor",
                 fluidRow(
                     column(4,
-                        selectInput(paste0(tableMeta$name,"_columns"),"Keep These Columns",choices=tableMeta$columns,selected=tableMeta$columns,multiple=TRUE)
+                        selectInput(paste0("kb_",tableMeta$name,"_columns"),"Keep These Columns",choices=tableMeta$columns,selected=tableMeta$columns,multiple=TRUE)
                     ),
                     column(8,
                         fluidRow(
                             helpText("Use these filters to EXCLUDE rows containing unwanted values for the selected variables"),
                             column(6,
-                                selectInput(paste0(tableMeta$name,"_filters"),"Filter by a Column",choices=tableMeta$columns,multiple=TRUE)
+                                selectInput(paste0("kb_",tableMeta$name,"_filters"),"Filter by a Column",choices=tableMeta$columns,multiple=TRUE)
                                 
                             ),
                             column(6,
-                                uiOutput(paste0(tableMeta$name,"_columnFiltersUI"))
+                                uiOutput(paste0("kb_",tableMeta$name,"_columnFiltersUI"))
                             )
                         )
                     )
                 ),
                 div(
-                    actionButton(paste0(tableMeta$name,"_load"),"Load Selection", class='navbar-right btn-primary table-editor-btn'),
-                    actionButton(paste0(tableMeta$name,"_refresh"),class="btn-primary navbar-right icon-refresh table-editor-btn",list(icon("refresh"),"Refresh Data Preview"))
+                    actionButton(paste0("kb_",tableMeta$name,"_load"),"Load Selection", class='navbar-right btn-primary table-editor-btn'),
+                    actionButton(paste0("kb_",tableMeta$name,"_refresh"),class="btn-primary navbar-right icon-refresh table-editor-btn",list(icon("refresh"),"Refresh Data Preview"))
                 ),
                 div(
                     h4("Data Preview"),
-                    renderDataTable(previewData(session,tableMeta)(), options=list(searching=FALSE,info=FALSE))
+                    renderDataTable(previewData(tableMeta)(), options=list(searching=FALSE,info=FALSE))
                 )
             )
         }
