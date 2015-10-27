@@ -121,7 +121,7 @@ KeboolaShiny <- setRefClass(
         dbConnect = function(session) {
             print("in dbConnect")
             provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-            credentials <- provisioningClient$getCredentials('transformations')$credentials 
+            credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- RedshiftDriver$new()
             db$connect(
                 credentials$host, 
@@ -283,39 +283,55 @@ KeboolaShiny <- setRefClass(
         },
         
         concludeStartup = function(session, options) {
-            session$sendCustomMessage(
-                type = "updateProgress",
-                message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary"))
             
-            if (!(is.null(options$dataToSave))) {
-                session$output$dataModalButton <- renderUI({.self$kdat$dataModalButton(session,options$dataToSave)})
-                session$output$saveResultUI <- renderUI({.self$kdat$saveResultUI(session,options$dataToSave)})
-            } else {
-                session$output$saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
-            }
-            if (options$description) {
-                print("get description in klib")
-                session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements, session)})
-            }
-            
-            if (!(is.null(options$configCallback))) {
-                print("init configs")
-                session$output$settingsModalButton <- renderUI({.self$kfig$settingsModalButton(session)})
-                session$output$saveConfigUI <- renderUI({.self$kfig$saveConfigUI(session$input)})
-                session$output$saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI(session)})
-                session$output$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, options$configCallback)})
-                session$output$configListUI <- renderUI({.self$kfig$configListUI(session)})
-                session$output$deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI(session)})
-            }
-            
-            session$sendCustomMessage(
-                type = "updateProgress",
-                message = list(id="finalising", text="Just a couple more things...", value="Completed", valueClass="text-success"))
+                session$sendCustomMessage(
+                    type = "updateProgress",
+                    message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary"))
+                
+                if (!(is.null(options$dataToSave))) {
+                    session$output$dataModalButton <- renderUI({.self$kdat$dataModalButton(session,options$dataToSave)})
+                    session$output$saveResultUI <- renderUI({.self$kdat$saveResultUI(session,options$dataToSave)})
+                } else {
+                    session$output$saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
+                }
+                if (options$cleanData && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
+                    kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id")]
+                    kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
+                }
+                
+                
+                if (options$description) {
+                    print("get description in klib")
+                    session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements, session)})
+                }
+                
+                if (!(is.null(options$configCallback))) {
+                    print("init configs")
+                    session$output$settingsModalButton <- renderUI({.self$kfig$settingsModalButton(session)})
+                    session$output$saveConfigUI <- renderUI({.self$kfig$saveConfigUI(session$input)})
+                    session$output$saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI(session)})
+                    session$output$loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(session, options$configCallback)})
+                    session$output$configListUI <- renderUI({.self$kfig$configListUI(session)})
+                    session$output$deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI(session)})
+                }
+                
+                session$sendCustomMessage(
+                    type = "updateProgress",
+                    message = list(id="finalising", text="Just a couple more things...", value="Completed", valueClass="text-success"))
+                
+                updateTextInput(session,"detour", value="0")
+                updateTextInput(session,"loading",value="0")    
+                print("STARTUP CONClUDED")
         },
         
+        
         #' @exportMethod
-        sourceData = function() {
+        sourceData = function(session) {
             reactive({
+                if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
+                    print("TRYING TO CONCLUDE STARTUP")
+                    .self$concludeStartup(session,NULL)
+                }
                 .self$kdat$sourceData    
             })
         },
@@ -344,18 +360,17 @@ KeboolaShiny <- setRefClass(
                           ) {
             
             ret <- list()
-            sourceData <- NULL
-            
-            
+            if (.self$loggedIn == 1 && .self$loading == 1 && !(is.null(.self$kdat)) && .self$kdat$allLoaded == TRUE) {
+                session$sendCustomMessage(
+                    type = "updateProgress",
+                    message = list(id="data_retrieval", text="Fetching Data", value="Completed", valueClass="text-success"))
+                
+                # Finish the startup process
+                concludeStartup(session,options)
+                print("RETURNING ABORT")
+                return()
+            }
             session$output$loginMsg <- renderUI({.self$loginErrorOutput})
-            
-            tableDisp <- lapply(options$tables,function(table){
-                fluidRow(
-                    column(9,div(paste("Loading Table", options$tables[[table]]))),
-                    column(3,textInput(paste0("table_",table),""))
-                )
-            })
-            session$output$loadingUI <- renderUI({tableDisp})
             
             print("doing login")
             session$sendCustomMessage(
@@ -393,9 +408,7 @@ KeboolaShiny <- setRefClass(
                 
                 # load the requested data
                 dataHasLoaded <- loadTablesDirect(session, options$tables, options = loadDataOptions)
-                
-                print("DO WE EVER GET HERE????")
-                
+            
                 if (dataHasLoaded == TRUE) { 
                     # The load tables method has been successful, 
                     # resume startup processing
@@ -406,7 +419,6 @@ KeboolaShiny <- setRefClass(
                     # Finish the startup process
                     concludeStartup(session,options)
                     
-                    updateTextInput(session,"loading",value="0")    
                 } else {
                     # Some tables were found to be too large to import.
                     # The detour workflow is in progress.  

@@ -34,8 +34,6 @@ keboolaPage <- function(page, appTitle="Default") {
                           span("Keboola Connection")
                         )
                     ),
-                    
-                    
                     div(class = "collapse navbar-collapse",
                         div(class = "nav navbar-nav navbar-right navbar-brand",
                             fluidRow(
@@ -73,6 +71,7 @@ keboolaPage <- function(page, appTitle="Default") {
                 div(id="init_panel", class="col-md-8 col-md-offset-2",
                     h4("Environment Initialisation"),
                     div(id="progress_panel", class="progress-panel container-fluid",""),
+                    uiOutput("detourMessage"),
                     conditionalPanel(
                         condition = "input.detour == 1",
                         id = "detourPanel",

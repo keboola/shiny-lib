@@ -56,13 +56,11 @@ KeboolaAppConfig <- setRefClass(
         
         configChoices = function(session) {        
             reactive({
-                print("getting configs")
                 configs <- .self$configs()()
                 choices <- list()
                 for (config in configs) {
                     choices[[paste(config$comment,config$dateCreated,sep=" -- ")]] <- config$configId
                 }
-                print(paste("choices", choices))
                 choices    
             })
         },
@@ -70,7 +68,6 @@ KeboolaAppConfig <- setRefClass(
         selectedConfig = function(session) {
             input <- session$input    
             configId <- session$input$config
-            print(paste("session input config", configId))
             if (is.null(configId) || configId == "None") return(NULL)
             configs <- .self$configs()()
             config <- lapply(configs,function(config) {
@@ -132,7 +129,7 @@ KeboolaAppConfig <- setRefClass(
                 paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config/", configId), 
                 query = list(bucket = .self$bucket)
             )
-            print("config", configId, "deleted!")
+            print("Config", configId, "deleted!")
             resp
         },
         
@@ -188,7 +185,6 @@ KeboolaAppConfig <- setRefClass(
                             )
                        )
                     )
-            print("got configs")
             ret    
         },
         
@@ -215,7 +211,6 @@ KeboolaAppConfig <- setRefClass(
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
-            print("Entered SAVE RESULTS")
             if (input$saveConfigForReal > 0 && input$saveConfigForReal > .self$lastSaveConfigValue && !.self$clearModal) {
                 lastSaveConfigValue <<- as.numeric(input$saveConfigForReal)
                 if (nchar(input$configComment) > 0) {
@@ -233,8 +228,6 @@ KeboolaAppConfig <- setRefClass(
                     ret <- list(ret,list(div(class = 'kfig-alert alert alert-warning', "Please enter a comment.")))
                 }
             }    
-            
-            print("saveConfigResult end")
             return(ret) 
         },
         
@@ -243,7 +236,6 @@ KeboolaAppConfig <- setRefClass(
             ret <- list()
             .self$clearForm(input)()
             if (input$loadConfig > 0 && input$loadConfig > .self$lastLoadConfigValue && input$config != "None" && !.self$clearModal) {
-                print("loading config")
                 tryCatch({
                     print("getting selected config")
                     config <- .self$selectedConfig(session)
@@ -260,7 +252,6 @@ KeboolaAppConfig <- setRefClass(
         },
         
         deleteConfigResultUI = function(session) {
-            print("DELETE CONFIG RESULTS UI")
             ret <- list()
             session$input$deleteConfig
             session$input$confirmDelete
@@ -277,21 +268,12 @@ KeboolaAppConfig <- setRefClass(
                     choices <- configChoices(session)()
                     mtch <- match(input$config,unlist(choices))
                     choice <- names(choices)[mtch[1]]
-                    print(paste("choice to delete ", choice))
                     ret <- div(class = 'alert alert-warning', paste("Are you sure you want to delete '", choice, "'?",sep=''),
                                actionButton("confirmDelete",'Yes'),
                                actionButton("confirmCancel",'No'))
                 } else if (!is.null(input$confirmDelete) && input$confirmDelete > .self$lastConfirmDeleteValue && !.self$clearModal) {
                     print("delete confirmed")
                     lastConfirmDeleteValue <<- as.numeric(input$confirmDelete)
-                    print(paste(
-                        "CONFIRM PRESSED AFTER UPDATE:: input$confirmCancel", input$confirmCancel, "  ",    
-                        "lastconfirmCancelVALue", .self$lastConfirmCancelValue, "  ",
-                        "input$confirmDelete", input$confirmDelete, "  ",
-                        "lastConfrimDeleteValue", .self$lastConfirmDeleteValue,
-                        "input$deleteConfig", input$deleteConfig, "  ",
-                        "lastDeleteConfigValue", .self$lastDeleteConfigValue
-                    ))
                     tryCatch({
                         print(paste("deleting config", input$config))
                         resp <- .self$deleteConfig(session, input$config)

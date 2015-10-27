@@ -12,12 +12,12 @@ KeboolaAppData <- setRefClass(
         bucket = 'character',
         runId = 'character',
         lastSaveValue = 'numeric',
-        # last table loaded from SAPI 
-        lastTable = 'character',
+        lastTable = 'character', # last table loaded from SAPI 
         maxMemory = 'numeric', #maximum allowed table size in bytes
         sourceData = 'list', # Where we have the source data
         memoryUsage = 'numeric',
-        loadList = 'list'
+        loadList = 'list',
+        allLoaded = 'logical'
     ),
     methods = list(
         #' Constructor.
@@ -29,7 +29,7 @@ KeboolaAppData <- setRefClass(
         #' @param maxMemory - maximum sourceData memory allocation
         #'  it will be read from command line argument.
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 100000000) {
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
@@ -43,6 +43,7 @@ KeboolaAppData <- setRefClass(
             sourceData <<- list()
             memoryUsage <<- 0
             loadList <<- list()
+            allLoaded <<- FALSE
         },
         
         loadTable = function(session, prettyName, table) {
@@ -91,21 +92,7 @@ KeboolaAppData <- setRefClass(
                     sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanData)
                 }
                 if (options$descriptor) {
-                    session$sendCustomMessage(
-                        type = "updateProgress",
-                        message = list(
-                            id="descriptor_progress",
-                            parentId="data_retrieval",
-                            text="Retrieving summary table.", value="In Progress", valueClass="text-primary"))
-                    
-                    sourceData$descriptor <<- .self$getDescriptor()
-                    session$sendCustomMessage(
-                        type = "updateProgress",
-                        message = list(
-                            id="descriptor_progress",
-                            parentId="data_retrieval",
-                            text="Retrieving summary table.", value="Completed", valueClass="text-success"))
-                    
+                    sourceData$descriptor <<- .self$getDescriptor(session)
                 }   
                 TRUE
             }, error = function(e) {
@@ -119,34 +106,38 @@ KeboolaAppData <- setRefClass(
             tableMetaList <- list()
             for (table in names(tables)) {
                 fullTableName <- paste0(.self$bucket, ".", tables[[table]])
-                print(paste("getting table meta",fullTableName))
                 tableMeta <- .self$client$getTable(fullTableName)
+                tableMeta$shinyName <- table
                 # check the table size
-                print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name))
+                print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name, table))
                 memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)
                 print(paste("POST mem usage at",.self$memoryUsage, "table",tableMeta$name))
                 tableMetaList[[tables[[table]]]] <- tableMeta
             }
             if (.self$memoryUsage > .self$maxMemory) {
+                print(paste("memoryUsage:", .self$memoryUsage, "maxMemory", .self$maxMemory))
                 tableMetaList
             } else {
-                FALSE
+                NULL
             }
         },
                 
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
-        getDescriptor = function() {
+        getDescriptor = function(session) {
             print("getDescriptor")
+            session$sendCustomMessage(
+                type = "updateProgress",
+                message = list(
+                    id="descriptor_progress",
+                    parentId="data_retrieval",
+                    text="Retrieving summary table.", value="In Progress", valueClass="text-primary"))
             tryCatch({
-                data <- .self$client$importTable(
-                    paste0(.self$bucket, ".finalResults"), 
-                    options = list(
-                        columns = c("item", "run_id", "sequence", 'value'),
-                        whereColumn = "run_id",
-                        whereValues = .self$runId
-                    )
-                )
+                # fetch the data
+                data <- .self$db$select(paste0(
+                                "SELECT item, run_id, sequence, value FROM ", 
+                                paste0("\"", .self$bucket, "\".\"finalResults\""),
+                                " WHERE run_id = ?;"), .self$runId)
                 
                 # grab only descriptors - needs to deal with split values from Redshift
                 descriptors <- data[which(data$item == 'descriptor'), ]
@@ -162,6 +153,13 @@ KeboolaAppData <- setRefClass(
                 # process JSON
                 descriptor <- jsonlite::fromJSON(descriptor, simplifyVector = FALSE)
                 print("getDescriptor finsihed")
+                # inform the progress panel that we're finished
+                session$sendCustomMessage(
+                    type = "updateProgress",
+                    message = list(
+                        id="descriptor_progress",
+                        parentId="data_retrieval",
+                        text="Retrieving summary table.", value="Completed", valueClass="text-success"))
                 return(descriptor)
             }, error = function(e) {
                 stop(paste0("I cannot load descriptor (from finalResults table) from SAPI (", e, ")"))
@@ -258,7 +256,7 @@ KeboolaAppData <- setRefClass(
                 descriptor <- desc
             } else {
                 if (is.null(.self$sourceData$descriptor)) {
-                    sourceData$descriptor <<- .self$getDescriptor()    
+                    sourceData$descriptor <<- .self$getDescriptor(session)    
                 }
                 descriptor <- .self$sourceData$descriptor
             }
@@ -436,14 +434,9 @@ KeboolaAppData <- setRefClass(
                     })
                 })
                 refresh <- session$input[[paste0(tableMeta$name,"_refresh")]]
-                load <- session$input[[paste0(tableMeta$name,"_load")]]
-                print(paste("LOAD?",load))
+                load <- as.numeric(session$input[[paste0(tableMeta$name,"_load")]])
                 isolate({
-                    print(names(session$input))
-                    print(paste("my input", paste0(tableMeta$name,"_columns")))
                     cols <- session$input[[paste0(tableMeta$name,"_columns")]]
-                    #cols <- session$input$testColumns
-                    print(cols)
                     colstr <- paste(cols, collapse=", ")
                     print(paste("COLSTR:", colstr))
                     filters <- session$input[[paste0(tableMeta$name,"_filters")]]
@@ -452,14 +445,13 @@ KeboolaAppData <- setRefClass(
                     if (!is.null(filters) && length(filters) > 0) {
                         for (filter in filters) {
                             filterName <- paste0(filter,"_filter")
-                            print(paste("FILTER", filter))
                             value <- session$input[[filterName]]
                             arglist[[filter]] <- value
                         }
                         argstrings <- paste(names(arglist)," != ?")
-                        print(paste("ARGSTR:",argstrings))
+                        
                         argstr <- paste("WHERE",paste(argstrings,collapse=" AND "))
-                        print(paste("ARGSTRRRRR:",argstr))
+                        
                     }
                     if (load > .self$loadList[[tableMeta$name]]) {
                         print("laod button has been clicked")
@@ -480,8 +472,10 @@ KeboolaAppData <- setRefClass(
                     
                     dat <- .self$db$select(query,arglist)
                     
+                    
                     if (load > .self$loadList[[tableMeta$name]]) {
                         loadList[[tableMeta$name]] <<- load
+                        
                         sourceData[[tableMeta$shinyName]] <<- dat
                         session$sendCustomMessage(
                             type = "updateProgress",
@@ -495,44 +489,81 @@ KeboolaAppData <- setRefClass(
                                     buttonId=paste0(tableMeta$name,"_load"),
                                     text="Reload Selection"
                                 ))
-                        data.frame(
+                        
+                        dat <- data.frame(
                             status="Table successfully loaded.",
                             memory=format(object.size(dat),units='auto'),
                             rows=nrow(dat)
                         )
-                        
-                    }else {
-                        dat
                     }
+                    .self$setMemoryUsage(session, tableMeta)
+                    if (.self$allLoaded) {
+                        print(paste("ALL LOADED NAMES", names(.self$sourceData)))
+                    }
+                    dat
                 })
             })
         },
         
+        #' 
+        setMemoryUsage = function(session,tableMeta) {
+            memoryUsage <<- 0
+            
+            print(paste("LOAD LIST",names(.self$loadList)))
+            print(.self$loadList)
+            print(paste("SOURCEDATA", names(.self$sourceData)))
+            allLoaded <<- TRUE
+            for (table in names(loadList)) {
+                print(paste("CHECKING TABLE", loadList[[table]]))
+                if (loadList[[table]] == 0) {
+                    print(paste("TABLE", table, " IS LOADED???  BUGGER"))
+                    memoryUsage <<- .self$memoryUsage + tableMeta$dataSizeBytes
+                    allLoaded <<- FALSE
+                } else {
+                    memoryUsage <<- .self$memoryUsage + as.numeric(object.size(.self$sourceData[[tableMeta$shinyName]]))
+                    print(paste("SHINY NAME:", tableMeta$shinyName, "TOTAL MEM : ", .self$memoryUsage, "TABLE", table, "MEM", as.character(object.size(.self$sourceData[[tableMeta$shinyName]]))))
+                }
+            }
+            if (.self$allLoaded && .self$memoryUsage < .self$maxMemory) {
+                session$output$detourMessage <- 
+                    renderUI(
+                        div(class="alert alert-success", 
+                            div(
+                                paste("The tables combine to (",as.character(.self$memoryUsage),"Bytes).  This is less than the memory limit (", .self$maxMemory, 
+                                      "Bytes) for this application. ")),
+                            actionButton("kb_continue", "Continue", class="navbar-right")
+                        )    
+                    )
+            }else {
+                session$output$detourMessage <- 
+                    renderUI(
+                        div(class="alert alert-warning", 
+                            paste("The tables combine to (",as.character(.self$memoryUsage),"Bytes).  This is greater than the memory limit (", .self$maxMemory, 
+                                  "Bytes) for this application. ",
+                                  "Please discard any columns that you believe will not be of interest,",
+                                  "and/or remove rows containing unwanted values."))    
+                    )    
+            }
+        },
+        
         #' @exportMethod
         problemTablesUI = function(session, problemTables) {
-            print(names(problemTables))
-            combinedTableMemory <- sum(unlist(lapply(problemTables,function(table) { table$dataSizeBytes })))
             
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
-                tableMeta$shinyName <- table
                 loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
                 tabPanel(tableMeta$name,.self$tableEditor(session, tableMeta))
             })
             
-            tabset <- do.call(tabsetPanel, tabs)
-            list(
-                div(class="alert alert-warning", 
-                    paste("The tables combine to (",combinedTableMemory,"Bytes).  This is greater than the memory limit (", .self$maxMemory, 
-                          "Bytes) for this application. ",
-                          "Please discard any columns that you believe will not be of interest,",
-                          "and/or remove rows with values that you know you don't want.")),
-                tabset
-            )
+            do.call(tabsetPanel, tabs)
+            
         },
         
         #' @exportMethod
         tableEditor = function(session, tableMeta) {   
+            #if (.self$loadList[[tableMeta]] > 0){
+            #    msg <- div("Table loaded.")
+            #}
             tags$div(id=tableMeta$name, class="tableEditor",
                 fluidRow(
                     column(4,
