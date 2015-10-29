@@ -29,7 +29,7 @@ KeboolaAppData <- setRefClass(
         #' @param dbConnection - an established database connection
         #' @param maxMemory - maximum sourceData memory allocation
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 100000000, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000, session = getDefaultReactiveDomain()) {
             
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
@@ -122,14 +122,19 @@ KeboolaAppData <- setRefClass(
         checkTables = function(tables) {
             tableMetaList <- list()
             for (table in names(tables)) {
-                fullTableName <- paste0(.self$bucket, ".", tables[[table]])
+                fullTableName <- paste0(.self$bucket, ".", tables[[table]]$name)
                 tableMeta <- .self$client$getTable(fullTableName)
                 tableMeta$shinyName <- table
+                if (is.null(tables[[table]]$reducible)) {
+                    tableMeta$reducible <- TRUE
+                } else {
+                    tableMeta$reducible <- tables[[table]]$reducible    
+                }
                 # check the table size
                 print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name, table))
                 memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)
                 print(paste("POST mem usage at",.self$memoryUsage, "table",tableMeta$name))
-                tableMetaList[[tables[[table]]]] <- tableMeta
+                tableMetaList[[tables[[table]]$name]] <- tableMeta
             }
             if (.self$memoryUsage > .self$maxMemory) {
                 print(paste("memoryUsage:", .self$memoryUsage, "maxMemory", .self$maxMemory))
@@ -150,10 +155,15 @@ KeboolaAppData <- setRefClass(
                     parentId="data_retrieval",
                     text="Retrieving summary table.", value="In Progress", valueClass="text-primary"))
             tryCatch({
+                fullTableName <- paste0("\"", .self$bucket, "\".\"finalResults\"")
+                columns <- c("item","run_id", "sequence", "value")
+                fullColumns <- paste(paste0(fullTableName,".\"",columns,"\""),collapse=", ")
+                
+                print(paste("FULL COLUMNS",fullColumns))
                 # fetch the data
                 data <- .self$db$select(paste0(
-                                "SELECT item, run_id, sequence, value FROM ", 
-                                paste0("\"", .self$bucket, "\".\"finalResults\""),
+                                "SELECT ", fullColumns, " FROM ", 
+                                fullTableName,
                                 " WHERE run_id = ?;"), .self$runId)
                 
                 # grab only descriptors - needs to deal with split values from Redshift
@@ -443,8 +453,8 @@ KeboolaAppData <- setRefClass(
             reactive({
                 session$output[[paste0("kb_",tableMeta$name,"_columnFiltersUI")]] <- renderUI({
                     lapply(session$input[[paste0("kb_",tableMeta$name,"_filters")]],function(arg){
-                        if (!is.null(session$input[["kb_",paste0(arg,"_filter")]])) {
-                            textInput("kb_",paste0(arg,"_filter"), paste(arg,"Filter"), value = session$input[["kb_",paste0(arg,"_filter")]])
+                        if (!is.null(session$input[[paste0("kb_",arg,"_filter")]])) {
+                            textInput(paste0("kb_",arg,"_filter"), paste(arg,"Filter"), value = session$input[[paste0("kb_",arg,"_filter")]])
                         } else {
                             textInput(paste0("kb_",arg,"_filter"), paste(arg,"Filter"))
                         }
@@ -453,9 +463,11 @@ KeboolaAppData <- setRefClass(
                 refresh <- session$input[[paste0("kb_",tableMeta$name,"_refresh")]]
                 load <- as.numeric(session$input[[paste0("kb_",tableMeta$name,"_load")]])
                 isolate({
+                    
+                    fullTableName <- paste0("\"", tableMeta$bucket$id, "\".\"",tableMeta$name, "\"")
                     cols <- session$input[[paste0("kb_",tableMeta$name,"_columns")]]
-                    colstr <- paste(cols, collapse=", ")
-                    print(paste("COLSTR:", colstr))
+                    fullColumnNames <- paste(paste0(fullTableName,".\"",cols,"\""),collapse=", ")
+                    
                     filters <- session$input[[paste0("kb_",tableMeta$name,"_filters")]]
                     argstr <- ""
                     arglist <- list()
@@ -483,8 +495,7 @@ KeboolaAppData <- setRefClass(
                     } else {
                         limit <- " LIMIT 50"
                     }
-                    query <- paste0("SELECT ",colstr," FROM \"", tableMeta$bucket$id, "\".\"",
-                                   tableMeta$name, "\"", argstr, limit)
+                    query <- paste0("SELECT ",fullColumnNames," FROM ", fullTableName, argstr, limit)
                     print(paste("previewData query:",query))
                     
                     dat <- .self$db$select(query,arglist)
@@ -568,16 +579,26 @@ KeboolaAppData <- setRefClass(
             
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
-                loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
-                tabPanel(tableMeta$name,.self$tableEditor(tableMeta))
+                print(paste("loading table",tableMeta$name))
+                if (tableMeta$reducible) {
+                    loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
+                    tabPanel(tableMeta$shinyName,.self$tableEditor(tableMeta))
+                }else {
+                    loaded <- .self$loadTable(tableMeta$shinyName, tableMeta$name)
+                    loadList[[tableMeta$name]] <<- 1 # this table had reducible set so is auto-loaded
+                    print(paste("loaded table",tableMeta$name))
+                    NULL
+                }
             })
-            
+            tabs <- Filter(Negate(is.null),tabs)
+            print("made tabs")
+            print(tabs)
             do.call(tabsetPanel, tabs)
-            
         },
         
         #' @exportMethod
         tableEditor = function(tableMeta) {   
+            print("setting up the tabs")
             tags$div(id=tableMeta$name, class="tableEditor",
                 fluidRow(
                     column(4,
