@@ -135,6 +135,22 @@ KeboolaShiny <- setRefClass(
                     write("client successful",stderr())
                     kfig <<- KeboolaAppConfig$new(.self$client, .self$bucketId, .self$appId)
                     write("keboola config lib loaded",stderr())
+
+                    if (is.null(.self$db)) {
+                        write("connecting to database", stderr())
+                        # get database credentials and connect to database
+                        provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
+                        credentials <- provisioningClient$getCredentials('transformations')$credentials 
+                        db <<- RedshiftDriver$new()
+                        .self$db$connect(
+                            credentials$host, 
+                            credentials$db,
+                            credentials$user,
+                            credentials$password,
+                            credentials$schema
+                        )
+                    }
+                    
                     kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId, .self$db)    
                     write("keboola data lib loaded",stderr())
                 }, error = function(e){
@@ -177,18 +193,6 @@ KeboolaShiny <- setRefClass(
                     print('success')
                     updateTextInput(session,"readyElem",value="1")
                     loggedIn <<- 1
-                    
-                    # get database credentials and connect to database
-                    provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-                    credentials <- provisioningClient$getCredentials('transformations')$credentials 
-                    db <<- RedshiftDriver$new()
-                    db$connect(
-                        credentials$host, 
-                        credentials$db,
-                        credentials$user,
-                        credentials$password,
-                        credentials$schema
-                    )                        
                 }
             } else {
                 print('token empty')
