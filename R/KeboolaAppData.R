@@ -29,7 +29,7 @@ KeboolaAppData <- setRefClass(
         #' @param dbConnection - an established database connection
         #' @param maxMemory - maximum sourceData memory allocation
         #' @exportMethod
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000000, session = getDefaultReactiveDomain()) {
             
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
@@ -73,7 +73,7 @@ KeboolaAppData <- setRefClass(
             
             if (nchar(.self$runId) > 0) {
                 print("loading runid included table")
-                sourceData[[prettyName]] <<- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE run_id = ?;"), .self$runId)
+                sourceData[[prettyName]] <<- .self$db$select(paste0("SELECT * FROM ", .self$lastTable, " WHERE ", .self$lastTable, ".\"run_id\" = ?;"), .self$runId)
             } else {
                 sourceData[[prettyName]] <<- .self$db$select(paste0("SELECT * FROM ", .self$lastTable))
             }    
@@ -86,27 +86,47 @@ KeboolaAppData <- setRefClass(
             
         },
         
+        #' @param options - list of options to pass on to the loadTables method
+        #' @return - list of tables. each element has required name, and optional reducible.
+        #' @exportMethod
+        getRecipeTables = function(options) {
+            query <- paste0("SELECT * FROM \"",.self$bucket,"\".\"finalResults\" WHERE \"", .self$bucket, "\".\"finalResults\".\"item_type\" = 'table' AND \"", .self$bucket, "\".\"finalResults\".\"value\" != '';")
+            print(paste("getRecipeTable Query", query))
+            tablesList <- .self$db$select(query)    
+            tables <- list()
+            for (i in 1:nrow(tablesList)) {
+                tables[[tablesList[i,c("item")]]] <- list(name=tablesList[i,c("value")])
+                if (!is.null(options$irReducibles) && tablesList[i,"value"] %in% options$irReducibles) {
+                    tables[[tablesList[i,"item"]]][[reducible]]=TRUE
+                }
+            }
+            # return the table list
+            tables
+        },
+        
         #' Load tables from SAPI
         #' @param tables list of tables ket as R variable, value as table name (without bucket)
         #' @param options - list
         #'                  cleanData boolean TRUE to compute datatypes of cleanData table
-        #'                  descriptor boolean TRUE to include descriptor in returned dataSet
+        #'                  description boolean TRUE to include descriptor in returned dataSet
         #' @return list of data indexed by variable name given in tables argument keys.
         #' @exportMethod 
-        loadTablesDirect = function(tables, options = list(cleanData = FALSE, descriptor = FALSE)) {
+        loadTables = function(tables, options = list(cleanData = FALSE, description = FALSE)) {
             tryCatch({
                 for (name in names(tables)) {
-                    loadTable(name,tables[[name]])
+                    loadTable(name,tables[[name]]$name)
                 }
                 # Apply data type setting if the cleandata columns are present and the option is set
-                if (options$cleanData && c("cleanData", "columnTypes") %in% names(tables)) {
+                if (options$cleanData && c("cleanTable", "columnTypes") %in% names(tables)) {
                     sourceData$columnTypes <<- .self$sourceData$columnTypes[,!names(.self$sourceData$columnTypes) %in% c("run_id")]
-                    sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanData)
+                    sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanTable)
                 }
+                
                 # Retrieve descriptor if option is set
-                if (options$descriptor) {
+                if (options$description) {
                     sourceData$descriptor <<- .self$getDescriptor()
-                }   
+                }  
+                
                 TRUE
             }, error = function(e) {
                 # convert the error to a more descriptive message
@@ -146,6 +166,7 @@ KeboolaAppData <- setRefClass(
                 
         #' Get results descriptor from SAPI
         #' @return nested list of elements.
+        #' @exportMethod
         getDescriptor = function() {
             print("getDescriptor")
             session$sendCustomMessage(
@@ -475,7 +496,8 @@ KeboolaAppData <- setRefClass(
                         for (filter in filters) {
                             filterName <- paste0("kb_",filter,"_filter")
                             value <- session$input[[filterName]]
-                            arglist[[filter]] <- value
+                            fullFilter <- paste0(fullTableName,".\"",filter,"\"")
+                            arglist[[fullFilter]] <- value
                         }
                         argstrings <- paste(names(arglist)," != ?")
                         
@@ -542,7 +564,7 @@ KeboolaAppData <- setRefClass(
             print(paste("SOURCEDATA", names(.self$sourceData)))
             allLoaded <<- TRUE
             for (table in names(loadList)) {
-                print(paste("CHECKING TABLE", loadList[[table]]))
+                print(paste("CHECKING TABLE", table, " loaded? ", loadList[[table]]))
                 if (loadList[[table]] == 0) {
                     print(paste("TABLE", table, " IS LOADED???  BUGGER"))
                     memoryUsage <<- .self$memoryUsage + tableMeta$dataSizeBytes
@@ -552,6 +574,7 @@ KeboolaAppData <- setRefClass(
                     print(paste("SHINY NAME:", tableMeta$shinyName, "TOTAL MEM : ", .self$memoryUsage, "TABLE", table, "MEM", as.character(object.size(.self$sourceData[[tableMeta$shinyName]]))))
                 }
             }
+            print(paste("ALL LOADED?", .self$allLoaded, "mem usage", .self$memoryUsage, "maxmem", .self$maxMemory))
             if (.self$allLoaded && .self$memoryUsage < .self$maxMemory) {
                 session$output$kb_detourMessage <- 
                     renderUI(
@@ -576,12 +599,13 @@ KeboolaAppData <- setRefClass(
         
         #' @exportMethod
         problemTablesUI = function(problemTables) {
-            
+            print(paste("trying to make tab for ", names(problemTables)))
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
                 print(paste("loading table",tableMeta$name))
                 if (tableMeta$reducible) {
                     loadList[[tableMeta$name]] <<- 0 #initiate the load button memory 
+                    print(paste("adding tab for", table))
                     tabPanel(tableMeta$shinyName,.self$tableEditor(tableMeta))
                 }else {
                     loaded <- .self$loadTable(tableMeta$shinyName, tableMeta$name)

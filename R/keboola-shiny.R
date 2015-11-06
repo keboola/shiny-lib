@@ -246,12 +246,30 @@ KeboolaShiny <- setRefClass(
         },
         
         #' @exportMethod
-        loadTablesDirect = function(tables, options) {
+        sourceData = function() {
+            reactive({
+                if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
+                    print("TRYING TO CONCLUDE STARTUP")
+                    .self$concludeStartup(session,NULL)
+                }
+                .self$kdat$sourceData    
+            })                
+        },
+        
+        #' Exposed wrapper for Kdat's method of the same name.
+        #'
+        #' @exportMethod
+        loadTable = function(prettyName, name) {
+            .self$kdat$loadTable(prettyName, name)
+        },
+        
+        #' @exportMethod
+        loadTables = function(tables, options) {
             # add defaults if they are missing
             if (missing(options)) {
                 options <- list(
                     cleanData = FALSE,
-                    descriptor = FALSE
+                    description = FALSE
                 )
             }
             # check the sizes of the tables in case any are too big
@@ -259,19 +277,20 @@ KeboolaShiny <- setRefClass(
             problemTables <- .self$kdat$checkTables(tables)
             print(paste("GOT MEM TRIGGER",names(problemTables)))
             if (!is.null(problemTables)) {
-                print("update text input")
+                # Set the UI detour flag
                 updateTextInput(session, "kb_detour", value="1")
                 
                 # we found that a table was too huge so we'll initiate diversion...
-                print("Some tables are TOO BIG")
+                print(paste("Some tables are TOO BIG", names(problemTables)))
+                print(problemTables)
                 session$output$kb_problemTables <- renderUI(
                     .self$kdat$problemTablesUI(problemTables)
                 )
                 FALSE    
             } else {
                 # no table was deemed too big so we go ahead with loading
-                print("All tables are not so big")
-                .self$kdat$loadTablesDirect(tables, options)
+                print("Tables are not so big")
+                .self$kdat$loadTables(tables, options)
                 TRUE
             }
         },
@@ -288,17 +307,23 @@ KeboolaShiny <- setRefClass(
                 } else {
                     session$output$kb_saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
                 }
-                if (options$cleanData && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
+                print(paste("post data to save", names(.self$kdat$sourceData)))
+                print(paste("options cleandata?", options$cleanData))
+                print(c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData))
+                print("was that true?")
+                if (options$cleanData == TRUE && c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData)) {
                     kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id")]
-                    kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
+                    print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanTable)))
+                    kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanTable)
                 }
                 
-                
-                if (options$description) {
-                    print("get description in klib")
+                print("data cleaned")
+                if (options$description == TRUE) {
+                    print("finished detour, get description")
+                    kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
                     session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
                 }
-                
+                print("description")
                 if (!(is.null(options$configCallback))) {
                     print("init configs")
                     session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
@@ -316,18 +341,6 @@ KeboolaShiny <- setRefClass(
                 updateTextInput(session,"kb_detour", value="0")
                 updateTextInput(session,"kb_loading",value="0")    
                 print("STARTUP CONClUDED")
-        },
-        
-        
-        #' @exportMethod
-        sourceData = function() {
-            reactive({
-                if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
-                    print("TRYING TO CONCLUDE STARTUP")
-                    .self$concludeStartup(session,NULL)
-                }
-                .self$kdat$sourceData    
-            })                
         },
         
         #' This method returns a list of all elements from the shared library that are destined for the shiny server output object
@@ -388,34 +401,41 @@ KeboolaShiny <- setRefClass(
                     type = "updateProgress",
                     message = list(id="connecting", text="Establishing Connection", value="Completed", valueClass="text-success"))
                 
-                print("connected")
+                print("Begin Data Loading")
                 
-                loadDataOptions <- list(cleanData = options$cleanData)
-                if (options$description) {
-                    loadDataOptions$descriptor = TRUE
+                loadDataOptions <- options
+                
+                if (options$tables == "recipeTables") {
+                    options$tables <- .self$kdat$getRecipeTables(options)
                 }
-                session$sendCustomMessage(
-                    type = "updateProgress",
-                    message = list(id="data_retrieval", text="Fetching Data", value="In Progress", valueClass="text-primary"))
                 
-                # load the requested data
-                dataHasLoaded <- loadTablesDirect(options$tables, options = loadDataOptions)
-            
-                if (dataHasLoaded == TRUE) { 
-                    # The load tables method has been successful, 
-                    # resume startup processing
+                if (!is.null(options$tables) && length(options$tables) > 0) {
                     session$sendCustomMessage(
                         type = "updateProgress",
-                        message = list(id="data_retrieval", text="Fetching Data", value="Completed", valueClass="text-success"))
+                        message = list(id="data_retrieval", text="Fetching Data", value="In Progress", valueClass="text-primary"))
                     
+                    # load the requested data
+                    dataHasLoaded <- loadTables(options$tables, options = loadDataOptions)
+                    
+                    if (dataHasLoaded == TRUE) { 
+                        # The load tables method has been successful, 
+                        # resume startup processing
+                        session$sendCustomMessage(
+                            type = "updateProgress",
+                            message = list(id="data_retrieval", text="Fetching Data", value="Completed", valueClass="text-success"))
+                        
+                        # Finish the startup process
+                        concludeStartup(options)
+                        
+                    } else {
+                        # Some tables were found to be too large to import.
+                        # The detour workflow is in progress.  
+                        # do nothing
+                    }    
+                } else {
                     # Finish the startup process
                     concludeStartup(options)
-                    
-                } else {
-                    # Some tables were found to be too large to import.
-                    # The detour workflow is in progress.  
-                    # do nothing
-                }
+                }    
             } 
             ret       
         }        
