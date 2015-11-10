@@ -71,7 +71,10 @@ KeboolaShiny <- setRefClass(
         getBucket = function() {
             val <- as.character(parseQueryString(session$clientData$url_search)$bucket)
             if (length(val) == 0) {
-                val <- ''
+                val <- session$input$kb_bucket
+                if (length(val) == 0) {
+                    val <- ''    
+                }
             }
             return(val)
         },
@@ -107,6 +110,11 @@ KeboolaShiny <- setRefClass(
             .self$appId
         },
         
+        #' Return a list of accessible buckets
+        getBuckets = function() {
+            lapply(.self$client$listBuckets(),function(bucket){ bucket$id })
+        },
+        
         #' Get the configId from the URL
         #' 
         #' @param clientData -- shiny session clientData object
@@ -132,9 +140,10 @@ KeboolaShiny <- setRefClass(
             print("initialization complete")
         },
         
+        
         #' Returns login status message or empty string if valid
         #' 
-        #' @return html string containing error message and field settings
+        #' @return list
         #' @exportMethod
         getLogin = function() {
             print("getLogin")
@@ -143,15 +152,11 @@ KeboolaShiny <- setRefClass(
             bucketId <<- .self$getBucket()
             appId <<- .self$getAppId()
             errMsg <<- ""
+            error <- NULL
             updateTextInput(session,"kb_loading",value="1")
             updateTextInput(session,"kb_loggedIn",value="1")
             
-            if (.self$useRunId == TRUE && .self$runId == "") {
-                errMsg <<- paste(errMsg, "This application requires a valid runId in the query string.")
-            }
-            if (.self$bucketId == "") {
-                errMsg <<- paste(errMsg, "This application requires a valid bucket in the query string.")
-            }
+            # check for valid token
             if (token != '') {
                 tryCatch({
                     client <<- keboola.sapi.r.client::SapiClient$new(token)
@@ -159,18 +164,38 @@ KeboolaShiny <- setRefClass(
                     errMsg <<- paste0("Please make sure that the token is valid (", e, ").")
                     write(paste("client not successful",e),stderr())
                 })
-                
+            } else {
+                print('token empty')
+                loggedIn <<- 0
+                error <- div(class = 'alert alert-warning', 'Please log in.')
+            }
+            print(paste("what is error?", error))
+            if (is.null(error)) {
+                print("error is null")
+                # check for runId if required
+                if (.self$useRunId == TRUE && .self$runId == "") {
+                    errMsg <<- paste(errMsg, "This application requires a valid runId in the query string.")
+                }
+                # check for bucket
+                if (.self$bucketId == "") {
+                    if (!is.null(.self$client)) {
+                        print("have client")
+                        updateTextInput(session,"kb_token",value=.self$token)
+                        updateSelectInput(session,"kb_bucket",choices=c("",.self$getBuckets()))    
+                    }
+                    errMsg <<- paste(errMsg, "This application requires a valid bucket, please select one.")
+                }
                 write(paste("what is error message?",errMsg),stderr())
                 if (errMsg != '') {
                     errorContent <- list(errMsg,
-                                      p(
-                                          tag("label", "Token:"),
-                                          .self$token
-                                      ),
-                                      p(
-                                          tag("label", "Bucket:"),
-                                          .self$bucketId
-                                      ))
+                                  p(
+                                      tag("label", "Token:"),
+                                      .self$token
+                                  ),
+                                  p(
+                                      tag("label", "Bucket:"),
+                                      .self$bucketId
+                                  ))
                     if (.self$useRunId) {
                         errorContent[[length(errorContent) + 1]] <-
                             p(
@@ -194,13 +219,8 @@ KeboolaShiny <- setRefClass(
                     session$sendCustomMessage(
                         type = "updateProgress",
                         message = list(id="authenticating", text="Authenticating", value="Completed", valueClass="text-success"))
-                    loading <<- 1
-                    
+                    loading <<- 1   
                 }
-            } else {
-                print('token empty')
-                loggedIn <<- 0
-                error <- div(class = 'alert alert-warning', 'Please log in.')
             }
             loginErrorOutput <<- error
             
@@ -405,11 +425,15 @@ KeboolaShiny <- setRefClass(
                 
                 loadDataOptions <- options
                 
-                if (options$tables == "recipeTables") {
+                if (!is.null(options$tables) && options$tables == "recipeTables") {
                     options$tables <- .self$kdat$getRecipeTables(options)
                 }
                 
-                if (!is.null(options$tables) && length(options$tables) > 0) {
+                if (is.null(options$tables)) {
+                    # Finish the startup process
+                    print("No tables given to load")
+                    concludeStartup(options)
+                } else {
                     session$sendCustomMessage(
                         type = "updateProgress",
                         message = list(id="data_retrieval", text="Fetching Data", value="In Progress", valueClass="text-primary"))
@@ -432,9 +456,6 @@ KeboolaShiny <- setRefClass(
                         # The detour workflow is in progress.  
                         # do nothing
                     }    
-                } else {
-                    # Finish the startup process
-                    concludeStartup(options)
                 }    
             } 
             ret       
