@@ -63,6 +63,5 @@ keboolaModalButton <- function(inputId, label, icon = NULL, title = "", content 
             )
         )
     )
-    
     tags$html(button, window)
 }

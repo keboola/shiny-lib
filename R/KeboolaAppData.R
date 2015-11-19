@@ -2,6 +2,18 @@
 #'
 #' @import methods
 #' @import shiny
+#' @field session 
+#' @field client Storage API client.
+#' @field db Redshift driver connection.
+#' @field bucket Bucket Id.
+#' @field runId Run Id
+#' @field lastSaveValue TODO
+#' @field lastTable TODO
+#' @field maxMemory TODO
+#' @field sourceData TODO
+#' @field memoryUsage TODO
+#' @field loadList TODO 
+#' @field allLoaded TODO 
 #' @export KeboolaAppData
 #' @exportClass KeboolaAppData
 KeboolaAppData <- setRefClass(
@@ -21,16 +33,15 @@ KeboolaAppData <- setRefClass(
         allLoaded = 'logical'
     ),
     methods = list(
-        #' Constructor.
-        #'
-        #' @param sapiClient - Keboola.sapi.r.client::SapiClient
-        #' @param bucketId - Bucket where config table is stored
-        #' @param run_id - the runId of the data to load
-        #' @param dbConnection - an established database connection
-        #' @param maxMemory - maximum sourceData memory allocation
-        #' @exportMethod
         initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000000, session = getDefaultReactiveDomain()) {
-            
+            "Constructor.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{sapiClient} Storage API client.}
+            \\item{\\code{bucketId} Bucket where config table is stored.}
+            \\item{\\code{run_id} The runId of the data to load.}
+            \\item{\\code{dbConnection} An established database connection.}
+            \\item{\\code{maxMemory} Maximum sourceData memory allocation.}
+            }}"
             if (is.null(client)) {
                 stop("Can not initialize KeboolaAppData.  No valid Sapi Client.")
             }
@@ -53,13 +64,13 @@ KeboolaAppData <- setRefClass(
             allLoaded <<- FALSE
         },
         
-        #' Inernal Method to retrieve table data from redshift 
-        #' 
-        #' @param session - shiny server session
-        #' @param prettyName - table name to be used in labels throughout the app
-        #' @param table - name of table in SAPI
-        #' 
         loadTable = function(prettyName, table) {
+            "Internal method to retrieve table data from Redshift 
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{prettyName} Table name to be used in labels throughout the app.}
+            \\item{\\code{table} Name of table in SAPI.}
+            }}
+            \\subsection{Return Value}{data.frame with table data.}"
             print(paste("loading table ", prettyName, table))
             session$sendCustomMessage(
                 type = "updateProgress",
@@ -86,32 +97,35 @@ KeboolaAppData <- setRefClass(
             
         },
         
-        #' @param options - list of options to pass on to the loadTables method
-        #' @return - list of tables. each element has required name, and optional reducible.
-        #' @exportMethod
         getRecipeTables = function(options) {
-            query <- paste0("SELECT * FROM \"",.self$bucket,"\".\"finalResults\" WHERE \"", .self$bucket, "\".\"finalResults\".\"item_type\" = 'table' AND \"", .self$bucket, "\".\"finalResults\".\"value\" != '';")
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{options} List of options to pass on to the loadTables method.}
+            }}
+            \\subsection{Return Value}{List of tables. each element has required name, and optional reducible.}"
+            query <- paste0("SELECT * FROM \"", .self$bucket, "\".\"finalResults\" WHERE \"", .self$bucket, "\".\"finalResults\".\"item_type\" = 'table' AND \"", .self$bucket, "\".\"finalResults\".\"value\" != '';")
             print(paste("getRecipeTable Query", query))
             tablesList <- .self$db$select(query)    
             tables <- list()
             for (i in 1:nrow(tablesList)) {
-                tables[[tablesList[i,c("item")]]] <- list(name=tablesList[i,c("value")])
-                if (!is.null(options$irReducibles) && tablesList[i,"value"] %in% options$irReducibles) {
-                    tables[[tablesList[i,"item"]]][[reducible]]=TRUE
+                tables[[tablesList[i, c("item")]]] <- list(name = tablesList[i,c("value")])
+                if (!is.null(options$irReducibles) && tablesList[i, "value"] %in% options$irReducibles) {
+                    tables[[tablesList[i, "item"]]][[reducible]] = TRUE
                 }
             }
             # return the table list
             tables
         },
         
-        #' Load tables from SAPI
-        #' @param tables list of tables ket as R variable, value as table name (without bucket)
-        #' @param options - list
-        #'                  cleanData boolean TRUE to compute datatypes of cleanData table
-        #'                  description boolean TRUE to include descriptor in returned dataSet
-        #' @return list of data indexed by variable name given in tables argument keys.
-        #' @exportMethod 
         loadTables = function(tables, options = list(cleanData = FALSE, description = FALSE)) {
+            "Load tables from SAPI.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tables} List of tables key as R variable, value as table name (without bucket).}
+            \\item{\\code{options} List with items:
+            cleanData boolean TRUE to compute datatypes of cleanData table
+            description boolean TRUE to include descriptor in returned dataSet.}
+            }}
+            \\subsection{Return Value}{List of data indexed by variable name given in tables argument keys.}"
             tryCatch({
                 for (name in names(tables)) {
                     loadTable(name,tables[[name]]$name)
@@ -134,12 +148,12 @@ KeboolaAppData <- setRefClass(
             })
         },
         
-        #' Checks the table list to see if maximum application memory will be exceeded by retrieving the data
-        #' 
-        #' @param tables - list of tables to load from SAPI
-        #' @return if memory exceeded - a list of table meta data for each requested table, else NULL
-        #' @exportMethod
         checkTables = function(tables) {
+            "Checks the table list to see if maximum application memory will be exceeded by retrieving the data
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tables} List of tables to load from SAPI.}
+            }}
+            \\subsection{Return Value}{If memory exceeded - a list of table metadata for each requested table, else NULL.}"
             tableMetaList <- list()
             for (table in names(tables)) {
                 fullTableName <- paste0(.self$bucket, ".", tables[[table]]$name)
@@ -164,10 +178,9 @@ KeboolaAppData <- setRefClass(
             }
         },
                 
-        #' Get results descriptor from SAPI
-        #' @return nested list of elements.
-        #' @exportMethod
         getDescriptor = function() {
+            "Get results descriptor from SAPI
+            \\subsection{Return Value}{Nested list of elements.}"
             print("getDescriptor")
             session$sendCustomMessage(
                 type = "updateProgress",
@@ -214,12 +227,14 @@ KeboolaAppData <- setRefClass(
             })
         },
         
-        #' Internal method that returns HTML content for the given section node
-        #' @param section - node of the descriptor
-        #' @param level - heading level (1=h2, 2=h3)
-        #' @param customElements - callback for processing custom elements
-        #' @return list of HTML elements
         processSection = function(section, level, customElements) {
+            "Internal method that returns HTML content for the given section node.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{section} Node of the descriptor.}
+            \\item{\\code{level} Heading level (1 = h2, 2 = h3).}
+            \\item{\\code{customElements} Callback for processing custom elements.}
+            }}
+            \\subsection{Return Value}{List of HTML elements.}"
             print("processSection")
             sectionRet <- list()
             if (level == 1) {
@@ -288,13 +303,16 @@ KeboolaAppData <- setRefClass(
             return(sectionRet)
         },
         
-        #' Method returns HTML content for a descriptor 
-        #' @param appTitle - title of the app
-        #' @param customElements - callback for printing custom elements, signature: function(elementId, content)
-        #'  function should return a single HTML element. Pass NULL to ignore custom elements.
-        #'
-        #' @exportMethod
         getDescription = function(appTitle, customElements, desc = NULL) {
+            "Method returns HTML content for a descriptor.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{appTitle} Title of the app.}
+            \\item{\\code{customElements} Callback for printing custom elements, 
+            signature: function(elementId, content)
+            function should return a single HTML element. Pass NULL to ignore custom elements.}
+            \\item{\\code{desc} Descriptor contents. If NULL, then \\code{getDescriptor} will be used.}
+            }}
+            \\subsection{Return Value}{TODO}"
             print("getDescription kdat")
             if (is.null(.self$client)) {
                 return(NULL)
@@ -346,12 +364,14 @@ KeboolaAppData <- setRefClass(
             print("getDescription exit kdat")
             return(contentRet)
         },
-        
-        #' Convert LG type definition to an R data type
-        #' @param type LG data type string ('integer', 'datetime', etc.)
-        #' @param mode LG variable mode ('continuous', 'discrete')
-        #' @return string R data type name.
+
         getConvertedDataType = function(type, mode) {
+            "Convert LG type definition to an R data type.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{type} LG data type string ('integer', 'datetime', etc.).}
+            \\item{\\code{mode} LG variable mode ('continuous', 'discrete').}
+            }}
+            \\subsection{Return Value}{R data type name.}"
             if (is.null(type) || is.na(type) || (length(type) == 0)) {
                 ret <- 'character'
             } else if (type == "integer" || type == "float") {
@@ -372,15 +392,15 @@ KeboolaAppData <- setRefClass(
             return(ret)
         },
         
-        #' Apply column types detected by LG to a data frame.
-        #' @param types Data frame with contents of table with LG datatypes 
-        #'  (this table is usually named 'VAI__1__Actual' in SAPI)
-        #' @param cleanData A data frame with actual data, its columns are
-        #'  expected to be listed as rows in the types table.
-        #' @return data frame supplied in cleanData parameter with 
-        #'  applied data types.
-        #' @exportMethod 
-        getCleanData = function(types, cleanData) {   
+        getCleanData = function(types, cleanData) {
+            "Apply column types detected by LG to a data frame.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{types} Data frame with contents of table with LG datatypes 
+            (this table is usually named 'VAI__1' in SAPI).}
+            \\item{\\code{cleanData} A data frame with actual data, its columns are
+            expected to be listed as rows in the types table.}
+            }}
+            \\subsection{Return Value}{data.frame supplied in cleanData parameter with applied data types.}"
             # remove columns run_id and _timestamp which are internal only
             cleanData <- cleanData[,!names(cleanData) %in% c("run_id", "_timestamp")]
             out <- lapply(
@@ -408,11 +428,9 @@ KeboolaAppData <- setRefClass(
             return(as.data.frame(out))
         },
         
-        #' Get the UI elements for the data saving form
-        #' 
-        #' @return List of html elements that make up the form
-        #' @exportMethod
         saveDataFormUI = function(dataToSave) {
+            "Get the UI elements for the data saving form
+            \\subsection{Return Value}{List of html elements that make up the form.}"
             buckets <- .self$client$listBuckets()
             bucketNames <- lapply(buckets, function(x) { x$id }) 
             colnames <- paste(as.character(names(dataToSave())), collapse=", ")
@@ -430,6 +448,11 @@ KeboolaAppData <- setRefClass(
         },
         
         saveResultUI = function(dataToSave) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{dataToSave} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             write("Attempting to save data",stderr())
             if (is.null(dataToSave)) {
                 return(div())
@@ -456,8 +479,12 @@ KeboolaAppData <- setRefClass(
             return(ret)
         },
         
-        #' @exportMethod
         dataModalButton = function(dataToSave) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{dataToSave} TODO.}
+            }}
+            \\subsection{Return Value}{TODO}"
             list(
                 keboolaModalButton(
                     "kb_dataModal",
@@ -469,8 +496,12 @@ KeboolaAppData <- setRefClass(
             )
         },
         
-        #' @exportMethod
         previewData = function(tableMeta) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tableMeta} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             reactive({
                 session$output[[paste0("kb_",tableMeta$name,"_columnFiltersUI")]] <- renderUI({
                     lapply(session$input[[paste0("kb_",tableMeta$name,"_filters")]],function(arg){
@@ -555,8 +586,12 @@ KeboolaAppData <- setRefClass(
             })
         },
         
-        #' 
         setMemoryUsage = function(tableMeta) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tableMeta} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             memoryUsage <<- 0
             
             print(paste("LOAD LIST",names(.self$loadList)))
@@ -597,8 +632,12 @@ KeboolaAppData <- setRefClass(
             }
         },
         
-        #' @exportMethod
         problemTablesUI = function(problemTables) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{problemTables} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             print(paste("trying to make tab for ", names(problemTables)))
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]
@@ -620,8 +659,12 @@ KeboolaAppData <- setRefClass(
             do.call(tabsetPanel, tabs)
         },
         
-        #' @exportMethod
         tableEditor = function(tableMeta) {   
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tableMeta} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             print("setting up the tabs")
             tags$div(id=tableMeta$name, class="tableEditor",
                 fluidRow(
@@ -653,4 +696,3 @@ KeboolaAppData <- setRefClass(
         }
     )
 )
-

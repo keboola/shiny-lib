@@ -24,15 +24,15 @@ KeboolaAppConfig <- setRefClass(
         shinyBaseUrl = 'character'
     ),
     methods = list(
-        #' Constructor.
-        #'
-        #' @param sapiClient - Keboola.sapi.r.client::SapiClient
-        #' @param bucket - Bucket where config table is stored
-        #' @param shinyUrl - Shiny Bundle API home URL
-        #'  it will be read from command line argument.
-        #'  "http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/"
-        #' @exportMethod
         initialize = function(sapiClient, bucketId, appId, shinyUrl = "https://shiny.keboola.com/shiny/", session = getDefaultReactiveDomain()) {
+            "Constructor.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{sapiClient} Storage API client.}
+            \\item{\\code{bucket} Bucket where config table is stored.}
+            \\item{\\code{shinyUrl} Shiny Bundle API home URL.
+            It will be read from command line argument.
+            http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/}
+            }}"
             if (!inherits(session, "ShinySession"))
                 stop("'session' is not a ShinySession object.")
             
@@ -54,12 +54,16 @@ KeboolaAppConfig <- setRefClass(
         },
        
         configs = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             reactive({
                 .self$getConfigs()
             })
         },
         
-        configChoices = function() {        
+        configChoices = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             reactive({
                 configs <- .self$configs()()
                 choices <- list()
@@ -70,7 +74,9 @@ KeboolaAppConfig <- setRefClass(
             })
         },
         
-        selectedConfig = function() {   
+        selectedConfig = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             configId <- session$input$kb_config
             if (is.null(configId) || configId == "None") return(NULL)
             configs <- .self$configs()()
@@ -84,10 +90,9 @@ KeboolaAppConfig <- setRefClass(
             Filter(Negate(is.null),config)[[1]]   
         },
         
-        #' Get app configurations from the Shiny Bundle
-        #' 
-        #' @return list of app configurations
         getConfigs = function() {
+            "Get app configurations from the Shiny Bundle.
+            \\subsection{Return Value}{List of app configurations.}"
             tryCatch({
                 configs <- .self$client$genericGet(
                     paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config"),
@@ -100,11 +105,10 @@ KeboolaAppConfig <- setRefClass(
             })    
         },
         
-        #' This method stores the entire session$input object in the kbc storage
-        #' in the bucket being used by the app
-        #' 
-        #' @return nothing.  Will throw an error if something goes wrong
         saveConfig = function() {
+            "This method stores the entire session$input object in the kbc storage
+            in the bucket being used by the app
+            \\subsection{Return Value}{TRUE, will throw an error if something goes wrong.}"
            if (is.null(.self$client)) {
                stop("Not connected to SAPI.")
            }
@@ -128,6 +132,11 @@ KeboolaAppConfig <- setRefClass(
         },
         
         deleteConfig = function(configId) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{configId} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             resp <- .self$client$genericDelete(
                 paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config/", configId), 
                 query = list(bucket = .self$bucket)
@@ -136,8 +145,9 @@ KeboolaAppConfig <- setRefClass(
             resp
         },
         
-        #' @exportMethod
         settingsModalButton = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             list(
                 keboolaModalButton(
                     "kb_configModal",
@@ -150,6 +160,11 @@ KeboolaAppConfig <- setRefClass(
         },
         
         clearForm = function(input) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{input} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             reactive({
                 input$kb_configModalButton
                 input$kb_config
@@ -169,6 +184,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         configSettingsUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             input <- session$input
             ret <- list(
                        div(style="text-align:right;padding:0 19px 15px 0;",
@@ -194,10 +211,14 @@ KeboolaAppConfig <- setRefClass(
         },
         
         configListUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             selectInput("kb_config","Configuration",c("None",configChoices()()))
         },
         
         saveConfigUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             ret <- list()
             input <- session$input
             .self$clearForm(input)()
@@ -214,6 +235,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         saveConfigResultUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
@@ -238,6 +261,11 @@ KeboolaAppConfig <- setRefClass(
         },
         
         loadConfigResultUI = function(callback) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{callback} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
@@ -258,6 +286,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         deleteConfigResultUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             ret <- list()
             session$input$kb_deleteConfig
             session$input$kb_confirmDelete
@@ -298,7 +328,3 @@ KeboolaAppConfig <- setRefClass(
         }
     )
 )
-           
-           
-           
-           

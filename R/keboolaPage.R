@@ -1,10 +1,10 @@
 #' Page Template for Keboola Shiny Apps
 #' 
-#' @param bootstrapPage Bootstrape page element
-#' @import DT
-#' @import shiny
+#' @import DT shiny
 #' @export
-keboolaPage <- function(page, appTitle="Default") {
+#' @param bootstrapPage Bootstrape page element
+#' @param appTitle Application title
+keboolaPage <- function(page, appTitle = "Default") {
     addResourcePath(
         prefix = 'components',
         directoryPath = system.file('components', package='keboola.shiny.lib'))
