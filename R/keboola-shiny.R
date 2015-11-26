@@ -261,6 +261,7 @@ KeboolaShiny <- setRefClass(
             })
         },
         
+        #' @exportMethod
         ready = function() {
             "TODO
             \\subsection{Return Value}{TODO}"
@@ -273,6 +274,7 @@ KeboolaShiny <- setRefClass(
             }
         },
         
+        #' @exportMethod
         sourceData = function() {
             "TODO
             \\subsection{Return Value}{TODO}"
@@ -285,6 +287,7 @@ KeboolaShiny <- setRefClass(
             })                
         },
         
+        #' @exportMethod
         loadTable = function(prettyName, name) {
             "Load table from Storage. 
             (Exposed wrapper for \\code{KeboolaAppData} method).
@@ -296,6 +299,7 @@ KeboolaShiny <- setRefClass(
             .self$kdat$loadTable(prettyName, name)
         },
         
+        #' @exportMethod
         loadTables = function(tables, options) {
             "TODO
             \\subsection{Parameters}{\\itemize{
@@ -386,6 +390,7 @@ KeboolaShiny <- setRefClass(
             print("STARTUP CONClUDED")
         },
         
+        #' @exportMethod
         startup = function(options = list(
                 appTitle = "",          # application title
                 tables = list(),        # list of tables to load from sapi list(localname = sapiname)
