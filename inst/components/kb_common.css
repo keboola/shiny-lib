@@ -1,57 +1,61 @@
+                
 .navbar .container-fluid {
-                  padding-left: 30px;
-                  padding-right: 30px;
-                }
-                
-                .navbar-brand {
-                    padding: 0;
-                }
-                
-                .kb-shiny-app-title {
-                    padding: 15px 15px;
-                }
-                
-                .kb-toolbar-btn {
-                    padding-top:7px;
-                }
+  padding-left: 30px;
+  padding-right: 30px;
+}
 
-                .kb-logo {
-                    background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
-                    display: inline-block;
-                    width: 24px;
-                    height: 32px;
-                    position: relative;
-                    top: 10px;
-                }
-                #loggedIn {
-                    margin-top: 10px;
-                }
-                .shiny-busy {
-                    cursor: wait;
-                }         
-                .error {
-                    color: #ff0033;
-                }
+.navbar-brand {
+    padding: 0;
+}
 
-                .kb-example:before {
-                    content: "Example: "
-                }
-                .kb-example {
-                    color: #A4A4A4;
-                }
-                .kb-hint {
-                    border-bottom: 1px dashed #333;
-                }
+.kb-navbar-top {
+    margin-bottom: 10px;
+    position:relative;
+}
 
-                #init_panel {
-                    padding-bottom: 20px;
-                }
-                .kb-status-item div {
-                    border-bottom: 1px solid #e3e3e3;
-                }
-                .table-editor-btn{
-                    margin-left:15px;
-                }
-                .hidden{
-                    display:none;
-                }
+.kb-shiny-app-title {
+    font-size: large;
+    position: absolute;
+    top: 15px;
+    left: 40px;
+}
+
+.kb-toolbar-btn {
+    padding-top:7px;
+}
+
+.kb-logo {
+    margin-top:7px;
+}
+#loggedIn {
+    margin-top: 10px;
+}
+.shiny-busy {
+    cursor: wait;
+}         
+.error {
+    color: #ff0033;
+}
+
+.kb-example:before {
+    content: "Example: "
+}
+.kb-example {
+    color: #A4A4A4;
+}
+.kb-hint {
+    border-bottom: 1px dashed #333;
+}
+
+#init_panel {
+    padding-bottom: 20px;
+}
+.kb-status-item div {
+    border-bottom: 1px solid #e3e3e3;
+}
+.table-editor-btn{
+    margin-left:15px;
+}
+.hidden{
+    display:none;
+}

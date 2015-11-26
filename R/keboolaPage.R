@@ -21,20 +21,22 @@ keboolaPage <- function(page, appTitle="Default") {
         )),
         div(
             class="container-fluid",
-            div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
+            div(class = "navbar navbar-static-top",
                 div(style="display:none;",
                     textInput("kb_readyElem","hidden element", value="0")
                 ),
                 div(class = "container-fluid",
-                    div(class = "navbar-header",
-                        a(class = "navbar-brand",
-                          href = "https://connection.keboola.com",
-                          span(class = "kb-logo"),
-                          span("Keboola Connection")
-                        )
+                    div(class = "navbar-left kb-navbar-top",                        
+                        div(class = "kb-logo",
+                            a(class = "",
+                              href = "https://connection.keboola.com",
+                              img(src = "https://d3iz2gfan5zufq.cloudfront.net/images/cloud-services/shiny-32-2.png", alt="Keboola")
+                            )    
+                        ),
+                        div(class = "kb-shiny-app-title", appTitle)
                     ),
                     div(class = "collapse navbar-collapse",
-                        div(class = "nav navbar-nav navbar-right navbar-brand",
+                        div(class = "nav navbar-nav navbar-right ",
                             fluidRow(
                                 column(2, class="kb-toolbar-btn",
                                     uiOutput("kb_dataModalButton")     
@@ -42,8 +44,8 @@ keboolaPage <- function(page, appTitle="Default") {
                                 column(2, class="kb-toolbar-btn",
                                     uiOutput("kb_settingsModalButton") 
                                 ),
-                                column(8, class="kb-shiny-app-title",
-                                    appTitle
+                                column(8, class="navbar-right ",
+                                    ""
                                 )
                             )
                         )
