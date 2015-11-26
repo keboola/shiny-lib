@@ -5,9 +5,22 @@
 #' @import keboola.sapi.r.client
 #' @import keboola.provisioning.r.client
 #' @import keboola.redshift.r.client
+#' @field session Shiny session object
+#' @field loggedIn 1 if the user is logged in, 0 if not
+#' @field errMsg Error encountered when logging in
+#' @field loginErrrorOutput HTML element with login error
+#' @field bucketId ID of the current bucket
+#' @field runId ID of the current job
+#' @field token Current KBC token
+#' @field appId TODO
+#' @field client Instance of Storage API client
+#' @field db Instance of Redshift Driver 
+#' @field kfig Instance of Application Config
+#' @field kdata Instance of Application Data
+#' @field userRunId TODO
+#' @field loading TODO
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
-
 KeboolaShiny <- setRefClass(
     'KeboolaShiny',
     fields = list(
@@ -27,13 +40,12 @@ KeboolaShiny <- setRefClass(
         loading = 'numeric'
     ),
     methods = list(
-        #' Constructor.
-        #'
-        #' @param Optional name of data directory, if not supplied then
-        #'  it will be read from command line argument.
-        #' @exportMethod
         initialize = function(requireRunId = TRUE, session = getDefaultReactiveDomain()) {
-            
+            "Constructor.
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{requireRunId} Use RunId.}
+            \\item{\\code{session} Shiny session object.}
+            }}"
             if (!inherits(session, "ShinySession"))
                 stop("'session' is not a ShinySession object.")
             
@@ -53,10 +65,9 @@ KeboolaShiny <- setRefClass(
             loading <<- 1
         },
         
-        #' Get the runId from the query string
-        #' 
-        #' @return runId
         getRunId = function() {
+            "Get the runId from the query string.
+            \\subsection{Return Value}{String Run ID.}"
             val <- as.character(parseQueryString(session$clientData$url_search)$runId)
             if (length(val) == 0) {
                 val <- ''
@@ -64,11 +75,9 @@ KeboolaShiny <- setRefClass(
             return(val)
         },
 
-        
-        #' Get the bucket from the query string
-        #' 
-        #' @return bucket
         getBucket = function() {
+            "Get the bucket from the query string.
+            \\subsection{Return Value}{String storage Bucket ID.}"
             val <- as.character(parseQueryString(session$clientData$url_search)$bucket)
             if (length(val) == 0) {
                 val <- session$input$kb_bucket
@@ -79,11 +88,9 @@ KeboolaShiny <- setRefClass(
             return(val)
         },
 
-        
-        #' Get the token from the session headers or input element
-        #' 
-        #' @return the supplied token
         getToken = function() {
+            "Get the token from the session headers or input element.
+            \\subsection{Return Value}{String KBC token}"
             val <- as.character(session$request$HTTP_X_STORAGEAPI_TOKEN)
             if (length(val) == 0) {
                 val <- as.character(parseQueryString(session$clientData$url_search)$token)
@@ -97,11 +104,9 @@ KeboolaShiny <- setRefClass(
             return(val)
         },
 
-        #' Get the AppId from the URL
-        #'
-        #' @return appId
-        #' @exportMethod
         getAppId = function() {
+            " Get the AppId from the URL.
+            \\subsection{Return Value}{Application ID of this registered app}"
             appId <<- unlist(strsplit(session$clientData$url_pathname,"/"))[1]
             if (.self$appId == "") {
                 appId <<- "8f5fc4bcf3d546ad"
@@ -110,22 +115,21 @@ KeboolaShiny <- setRefClass(
             .self$appId
         },
         
-        #' Return a list of accessible buckets
         getBuckets = function() {
+            "Return a list of accessible buckets.
+            \\subsection{Return Value}{Character vector of bucketI IDs}"
             lapply(.self$client$listBuckets(),function(bucket){ bucket$id })
         },
         
-        #' Get the configId from the URL
-        #' 
-        #' @param clientData -- shiny session clientData object
-        #' @return configId or ""
-        #' @exportMethod
         getConfigId = function() {
+            "Get the configId from the URL.
+            \\subsection{Return Value}{}"
             as.character(parseQueryString(session$clientData$url_search)$config)
         },
         
-        #' establish a connection via provisioning client credentials
         dbConnect = function() {
+            "Establish a connection via provisioning client credentials.
+            \\subsection{Return Value}{TRUE}"
             print("in dbConnect")
             provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
             credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
@@ -138,14 +142,14 @@ KeboolaShiny <- setRefClass(
                 credentials$schema
             )    
             print("initialization complete")
+            TRUE
         },
         
-        
-        #' Returns login status message or empty string if valid
-        #' 
-        #' @return list
-        #' @exportMethod
         getLogin = function() {
+            "Verify login information and initialize application.
+            \\subsection{Return Value}{List with items:
+            token, runId, bucket, loggedIn, errMsg, client, ready
+            }"
             print("getLogin")
             token <<- .self$getToken()
             runId <<- .self$getRunId()
@@ -237,6 +241,8 @@ KeboolaShiny <- setRefClass(
         },
         
         initLibs = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             print("initLibs?")
             tryCatch({
                 
@@ -256,6 +262,8 @@ KeboolaShiny <- setRefClass(
         },
         
         ready = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             if (!(is.null(session$input$kb_readyElem)) && session$input$kb_readyElem != "0") {
                 print("READy")
                 TRUE
@@ -265,8 +273,9 @@ KeboolaShiny <- setRefClass(
             }
         },
         
-        #' @exportMethod
         sourceData = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             reactive({
                 if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
                     print("TRYING TO CONCLUDE STARTUP")
@@ -276,15 +285,24 @@ KeboolaShiny <- setRefClass(
             })                
         },
         
-        #' Exposed wrapper for Kdat's method of the same name.
-        #'
-        #' @exportMethod
         loadTable = function(prettyName, name) {
+            "Load table from Storage. 
+            (Exposed wrapper for \\code{KeboolaAppData} method).
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{prettyName} Table name to be used in labels throughout the app.}
+            \\item{\\code{name} Name of table in SAPI.}
+            }}
+            \\subsection{Return Value}{data.frame with table data}"
             .self$kdat$loadTable(prettyName, name)
         },
         
-        #' @exportMethod
         loadTables = function(tables, options) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{tables} TODO}
+            \\item{\\code{options} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
             # add defaults if they are missing
             if (missing(options)) {
                 options <- list(
@@ -316,74 +334,80 @@ KeboolaShiny <- setRefClass(
         },
         
         concludeStartup = function(options) {
+            "TODO
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{options} TODO}
+            }}
+            \\subsection{Return Value}{TODO}"
+            session$sendCustomMessage(
+                type = "updateProgress",
+                message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary")
+            )
             
-                session$sendCustomMessage(
-                    type = "updateProgress",
-                    message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary"))
-                
-                if (!(is.null(options$dataToSave))) {
-                    session$output$kb_dataModalButton <- renderUI({.self$kdat$dataModalButton(options$dataToSave)})
-                    session$output$kb_saveResultUI <- renderUI({.self$kdat$saveResultUI(options$dataToSave)})
-                } else {
-                    session$output$kb_saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
-                }
-                print(paste("post data to save", names(.self$kdat$sourceData)))
-                print(paste("options cleandata?", options$cleanData))
-                print(c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData))
-                print("was that true?")
-                if (options$cleanData == TRUE && c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData)) {
-                    kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id")]
-                    print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanTable)))
-                    kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanTable)
-                }
-                
-                print("data cleaned")
-                if (options$description == TRUE) {
-                    print("finished detour, get description")
-                    kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
-                    session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
-                }
-                print("description")
-                if (!(is.null(options$configCallback))) {
-                    print("init configs")
-                    session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
-                    session$output$kb_saveConfigUI <- renderUI({.self$kfig$saveConfigUI()})
-                    session$output$kb_saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI()})
-                    session$output$kb_loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(options$configCallback)})
-                    session$output$kb_configListUI <- renderUI({.self$kfig$configListUI()})
-                    session$output$kb_deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI()})
-                }
-                
-                session$sendCustomMessage(
-                    type = "updateProgress",
-                    message = list(id="finalising", text="Just a couple more things...", value="Completed", valueClass="text-success"))
-                
-                updateTextInput(session,"kb_detour", value="0")
-                updateTextInput(session,"kb_loading",value="0")    
-                print("STARTUP CONClUDED")
+            if (!(is.null(options$dataToSave))) {
+                session$output$kb_dataModalButton <- renderUI({.self$kdat$dataModalButton(options$dataToSave)})
+                session$output$kb_saveResultUI <- renderUI({.self$kdat$saveResultUI(options$dataToSave)})
+            } else {
+                session$output$kb_saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
+            }
+            print(paste("post data to save", names(.self$kdat$sourceData)))
+            print(paste("options cleandata?", options$cleanData))
+            print(c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData))
+            print("was that true?")
+            if (options$cleanData == TRUE && c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData)) {
+                kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id")]
+                print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanTable)))
+                kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanTable)
+            }
+            
+            print("data cleaned")
+            if (options$description == TRUE) {
+                print("finished detour, get description")
+                kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
+                session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
+            }
+            print("description")
+            if (!(is.null(options$configCallback))) {
+                print("init configs")
+                session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
+                session$output$kb_saveConfigUI <- renderUI({.self$kfig$saveConfigUI()})
+                session$output$kb_saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI()})
+                session$output$kb_loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(options$configCallback)})
+                session$output$kb_configListUI <- renderUI({.self$kfig$configListUI()})
+                session$output$kb_deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI()})
+            }
+            
+            session$sendCustomMessage(
+                type = "updateProgress",
+                message = list(id="finalising", text="Just a couple more things...", value="Completed", valueClass="text-success"))
+            
+            updateTextInput(session,"kb_detour", value="0")
+            updateTextInput(session,"kb_loading",value="0")    
+            print("STARTUP CONClUDED")
         },
         
-        #' This method returns a list of all elements from the shared library that are destined for the shiny server output object
-        #' They are mainly renderUI functions, but can be any render function available in shiny
-        #' 
-        #' @param appTitle - the title of the application
-        #' @param tables - list of tables to load from sapi list(localname = sapiname)
-        #' @param dataToSave - the reactive in server.R that holds the input filtered data, or any data that would want to be saved to sapi
-        #' @param configCallback - the method which is to be invoked when a configuration is loaded.  This method will generally update inputs according to the selectedConfig values
-        #' @param description - whether or not to include a description object
-        #' @param customElements - the method for processing custom elements of the description
-        #' @exportMethod
         startup = function(options = list(
-                                appTitle = "",          # application title
-                               tables = list(),        # list of tables to load from sapi list(localname = sapiname)
-                               cleanData = FALSE,      # whether to use datatype conversion for the cleandata table
-                               dataToSave = NULL,      # name of the reactive method that produces filtered data to save back to sapi
-                               configCallback = NULL,  # callback function which sets inputs when input configuration chosen
-                               description = FALSE,    # get the descriptor?
-                               customElements = NULL   # function to process custom descriptor elements           
-                        )
+                appTitle = "",          # application title
+                tables = list(),        # list of tables to load from sapi list(localname = sapiname)
+                cleanData = FALSE,      # whether to use datatype conversion for the cleandata table
+                dataToSave = NULL,      # name of the reactive method that produces filtered data to save back to sapi
+                configCallback = NULL,  # callback function which sets inputs when input configuration chosen
+                description = FALSE,    # get the descriptor?
+                customElements = NULL   # function to process custom descriptor elements           
+            )
         ){
-                            
+            "This method returns a list of all elements from the shared library that are destined for the shiny server output object
+            They are mainly renderUI functions, but can be any render function available in shiny
+            \\subsection{Parameters}{\\itemize{
+            \\item{\\code{options} List with items:
+            appTitle - the title of the application
+            tables - list of tables to load from sapi list(localname = sapiname)
+            dataToSave - the reactive in server.R that holds the input filtered data, or any data that would want to be saved to sapi
+            configCallback - the method which is to be invoked when a configuration is loaded.  This method will generally update inputs according to the selectedConfig values
+            description - whether or not to include a description object
+            customElements - the method for processing custom elements of the description}
+            }}
+            \\subsection{Return Value}{TODO}"
             ret <- list()
             if (.self$loggedIn == 1 && .self$loading == 1 && !(is.null(.self$kdat)) && .self$kdat$allLoaded == TRUE) {
                 session$sendCustomMessage(
