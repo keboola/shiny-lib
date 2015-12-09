@@ -38,13 +38,13 @@ keboolaPage <- function(page, appTitle="Default") {
                     div(class = "collapse navbar-collapse",
                         div(class = "nav navbar-nav navbar-right ",
                             fluidRow(
-                                column(2, class="kb-toolbar-btn",
+                                column(3, class="kb-toolbar-btn",
                                     uiOutput("kb_dataModalButton")     
                                 ),
-                                column(2, class="kb-toolbar-btn",
+                                column(3, class="kb-toolbar-btn",
                                     uiOutput("kb_settingsModalButton") 
                                 ),
-                                column(8, class="navbar-right ",
+                                column(6, class="navbar-right ",
                                     ""
                                 )
                             )
