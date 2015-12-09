@@ -131,15 +131,18 @@ KeboolaShiny <- setRefClass(
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
             print("in dbConnect")
-            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-            credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
+            credentials <- .self$client$createCredentials(.self$bucketId,"shiny-lib-credentials")
+            credentials <- credentials$redshift
+            print(credentials)
+            #provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
+            #credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- RedshiftDriver$new()
             db$connect(
                 credentials$host, 
-                credentials$db,
+                credentials$databaseName,
                 credentials$user,
                 credentials$password,
-                credentials$schema
+                credentials$schemaName
             )    
             print("initialization complete")
             TRUE
@@ -332,6 +335,7 @@ KeboolaShiny <- setRefClass(
             } else {
                 # no table was deemed too big so we go ahead with loading
                 print("Tables are not so big")
+                print(paste("loading",tables))
                 .self$kdat$loadTables(tables, options)
                 TRUE
             }
@@ -356,12 +360,12 @@ KeboolaShiny <- setRefClass(
             }
             print(paste("post data to save", names(.self$kdat$sourceData)))
             print(paste("options cleandata?", options$cleanData))
-            print(c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData))
+            print(c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData))
             print("was that true?")
-            if (options$cleanData == TRUE && c("cleanTable", "columnTypes") %in% names(.self$kdat$sourceData)) {
-                kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id")]
-                print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanTable)))
-                kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanTable)
+            if (options$cleanData == TRUE && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
+                kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id", "_timestamp")]
+                print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanData)))
+                kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
             }
             
             print("data cleaned")

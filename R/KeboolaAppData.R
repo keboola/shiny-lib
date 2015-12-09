@@ -33,7 +33,7 @@ KeboolaAppData <- setRefClass(
         allLoaded = 'logical'
     ),
     methods = list(
-        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1000000000, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 500000000, session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{sapiClient} Storage API client.}
@@ -126,9 +126,12 @@ KeboolaAppData <- setRefClass(
             description boolean TRUE to include descriptor in returned dataSet.}
             }}
             \\subsection{Return Value}{List of data indexed by variable name given in tables argument keys.}"
+            print(tables)
             tryCatch({
                 for (name in names(tables)) {
+                    print(paste("loading table", name))
                     loadTable(name,tables[[name]]$name)
+                    print(paste("loaded table", name))
                 }
                 # Apply data type setting if the cleandata columns are present and the option is set
                 if (options$cleanData && c("cleanTable", "columnTypes") %in% names(tables)) {
