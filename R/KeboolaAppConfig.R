@@ -12,8 +12,6 @@ KeboolaAppConfig <- setRefClass(
         session = 'ANY', # shiny server session
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         bucket = 'character',
-        runId = 'character',
-        appId = 'character',
         lastModalButtonValue = 'numeric',
         lastLoadConfigValue = 'numeric',
         lastSaveConfigValue = 'numeric',
@@ -24,7 +22,7 @@ KeboolaAppConfig <- setRefClass(
         shinyBaseUrl = 'character'
     ),
     methods = list(
-        initialize = function(sapiClient, bucketId, appId, shinyUrl = "https://shiny.keboola.com/shiny/", session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, appConfig, shinyUrl = "https://shiny.keboola.com/shiny/", session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{sapiClient} Storage API client.}
@@ -47,8 +45,7 @@ KeboolaAppConfig <- setRefClass(
             lastModalButtonValue <<- 0
             clearModal <<- FALSE
             client <<- sapiClient
-            bucket <<- bucketId
-            appId <<- appId
+            bucket <<- appConfig$bucket
             shinyBaseUrl <<- shinyUrl
         },
        
