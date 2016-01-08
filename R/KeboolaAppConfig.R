@@ -30,8 +30,7 @@ KeboolaAppConfig <- setRefClass(
             \\item{\\code{sapiClient} Storage API client.}
             \\item{\\code{bucket} Bucket where config table is stored.}
             \\item{\\code{shinyUrl} Shiny Bundle API home URL.
-            It will be read from command line argument.
-            http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/}
+            It will be read from command line argument.}
             }}"
             if (!inherits(session, "ShinySession"))
                 stop("'session' is not a ShinySession object.")
@@ -115,7 +114,10 @@ KeboolaAppConfig <- setRefClass(
            tryCatch({
                configs <- list()
                for (name in names(session$input)) {
-                   configs[[name]] <- session$input[[name]]  
+                   # only store non-system inputs
+                   if (length(grep("^kb_", name)) == 0) {
+                       configs[[name]] <- session$input[[name]]      
+                   }
                }
                obj <- list()
                obj$comment <- configs$kb_configComment
