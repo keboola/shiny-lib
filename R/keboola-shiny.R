@@ -25,10 +25,11 @@ KeboolaShiny <- setRefClass(
         loggedIn = 'numeric',
         errMsg = 'character',
         loginErrorOutput = 'ANY',  # shiny.tag element containing login error message html
-        token = 'character',
         appConfig = 'ANY',
+        token = 'character',
         bucket = 'character',
         componentId = 'character',
+        configId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
@@ -49,8 +50,10 @@ KeboolaShiny <- setRefClass(
             errMsg <<- ''
             loginErrorOutput <<- ''
             token <<- ''
-            appConfig <<- NULL
+            configId <<- ''
+            componentId <<- ''
             bucket <<- ''
+            appConfig <<- NULL
             client <<- NULL
             db <<- NULL
             kfig <<- NULL
@@ -85,16 +88,15 @@ KeboolaShiny <- setRefClass(
             } else {
                 if (length(grep("^kbc_", val)) > 0) {
                     # app registered via kbc UI
-                    componentId = "shiny"
-                    configId = unlist(strsplit(val,"^kbc_"))[2]
+                    componentId <<- "shiny"
+                    configId <<- unlist(strsplit(val,"^kbc_"))[2]
                 } else if (length(grep("^lg_", val)) > 0) {
                     # app registered via LG
-                    componentId = "lg-shiny"
-                    configId = unlist(strsplit(val,"^lg_"))[2]
+                    componentId <<- "lg-shiny"
+                    configId <<- unlist(strsplit(val,"^lg_"))[2]
                 } else {
-                    componentId = ""
-                    configId = ""
-                    NULL
+                    # there wasn't a valid config given
+                    stop("Sorry, I need a valid configuration in the url to continue.")
                 }
                 tryCatch({
                     print(.self$client$listBuckets())
@@ -235,21 +237,18 @@ KeboolaShiny <- setRefClass(
         },
         
         initLibs = function() {
-            "TODO
-            \\subsection{Return Value}{TODO}"
-            print("initLibs?")
+            "connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
+            \\subsection{Return Value}{void}"
             tryCatch({
-                
-                print("connecting via provisioning client")
                 .self$dbConnect()
                 # get database credentials and connect to database
                 print("connection established")
                 # login was successful
                 write("client successful",stdout())
-                kfig <<- KeboolaAppConfig$new(.self$client, .self$appConfig)
+                kfig <<- KeboolaAppConfig$new(.self$client, .self$componentId, .self$configId)
                 write("keboola config lib loaded",stdout())
                 kdat <<- KeboolaAppData$new(.self$client, .self$appConfig, .self$db)    
-                write("keboola data lib loaded",stderr())
+                write("keboola data lib loaded",stdout())
             }, error = function(e){
                 write(paste("Error initializing libraries:", e), stderr())  
             })
@@ -343,36 +342,35 @@ KeboolaShiny <- setRefClass(
                 message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary")
             )
             
+            # if the data storing option flag is set, we load our output elements with the UI functions.
             if (!(is.null(options$dataToSave))) {
                 session$output$kb_dataModalButton <- renderUI({.self$kdat$dataModalButton(options$dataToSave)})
                 session$output$kb_saveResultUI <- renderUI({.self$kdat$saveResultUI(options$dataToSave)})
             } else {
                 session$output$kb_saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
             }
-            print(paste("post data to save", names(.self$kdat$sourceData)))
-            print(paste("options cleandata?", options$cleanData))
-            print(c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData))
-            print("was that true?")
+            
             if (options$cleanData == TRUE && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
                 kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id", "_timestamp")]
                 print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanData)))
                 kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
             }
             
-            print("data cleaned")
             if (options$description == TRUE) {
                 print("finished detour, get description")
                 kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
                 session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
             }
-            print("description")
+            
+            # if the input config option (the callback function) is given,
+            # we need to populate the session output object with the UI elements for the modal.
             if (!(is.null(options$configCallback))) {
                 print("init configs")
                 session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
                 session$output$kb_saveConfigUI <- renderUI({.self$kfig$saveConfigUI()})
                 session$output$kb_saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI()})
                 session$output$kb_loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(options$configCallback)})
-                session$output$kb_configListUI <- renderUI({.self$kfig$configListUI()})
+                session$output$kb_configSelectorUI <- renderUI({.self$kfig$configSelectorUI()})
                 session$output$kb_deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI()})
             }
             
