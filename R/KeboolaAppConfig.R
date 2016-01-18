@@ -133,7 +133,7 @@ KeboolaAppConfig <- setRefClass(
                resp <- .self$client$createConfigurationRow(
                    .self$component,
                    .self$configId,
-                   obj$comment,
+                   gsub("-+","-", gsub("[^A-Za-z0-9_]", "-",obj$comment)), # replace non alphanumerics with dashes
                    jsonlite::toJSON(obj, auto_unbox=TRUE))
                TRUE
            }, error = function(e) {
