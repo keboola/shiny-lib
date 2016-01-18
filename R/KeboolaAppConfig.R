@@ -109,7 +109,7 @@ KeboolaAppConfig <- setRefClass(
             })
             # the config object is full of nulls for non-matches, 
             # so we remove them and return the matching elementt
-            Filter(Negate(is.null),config)[[1]]   
+            Filter(Negate(is.null),config)[[1]]$config 
         },
         
         saveConfig = function() {
