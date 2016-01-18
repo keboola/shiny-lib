@@ -1,87 +1,48 @@
 #' Page Template for Keboola Shiny Apps
 #' 
-#' @param bootstrapPage Bootstrape page element
-#' @import DT
-#' @import shiny
+#' @import DT shiny
 #' @export
+#' @param bootstrapPage bootstrapePage element
+#' @param appTitle Application title
 keboolaPage <- function(page, appTitle="Default") {
+    addResourcePath(
+        prefix = 'components',
+        directoryPath = system.file('components', package='keboola.shiny.lib'))
+    
     bootstrapPage(
         DT::datatable(data.frame()),
         # basic application container divs
-        tags$head(tags$title(appTitle)),
+        singleton(tags$head(
+            tags$script(src = 'components/kb_common.js'),
+            tags$link(rel = 'stylesheet',
+                      type = 'text/css',
+                      href = 'components/kb_common.css'),
+            tags$title(appTitle)
+        )),
         div(
             class="container-fluid",
-            tags$head(tags$style('
-                .navbar .container-fluid {
-                  padding-left: 30px;
-                  padding-right: 30px;
-                }
-                
-                .navbar-brand {
-                    padding: 0;
-                }
-                
-                .kb-shiny-app-title {
-                    padding: 15px 15px;
-                }
-                
-                .kb-toolbar-btn {
-                    padding-top:7px;
-                }
-
-                .kb-logo {
-                    background: transparent url(https://connection.keboola.com/app/modules/admin/images/keboola-logo.png) 0 0 no-repeat;
-                    display: inline-block;
-                    width: 24px;
-                    height: 32px;
-                    position: relative;
-                    top: 10px;
-                }
-                #loggedIn {
-                    margin-top: 10px;
-                }
-                .shiny-busy {
-                    cursor: wait;
-                }         
-                .error {
-                    color: #ff0033;
-                }
-
-                .kb-example:before {
-                    content: "Example: "
-                }
-                .kb-example {
-                    color: #A4A4A4;
-                }
-                .kb-hint {
-                    border-bottom: 1px dashed #333;
-                }
-            ')),
-            div(class = "navbar navbar-default navbar-static-top kb-navbar-top",
-                div(style="display:none;",
-                    textInput("readyElem","hidden element", value="0")
-                ),
+            div(class = "navbar navbar-static-top",
                 div(class = "container-fluid",
-                    div(class = "navbar-header",
-                        a(class = "navbar-brand",
-                          href = "https://connection.keboola.com",
-                          span(class = "kb-logo"),
-                          span("Keboola Connection")
-                        )
+                    div(class = "navbar-left kb-navbar-top",                        
+                        div(class = "kb-logo",
+                            a(class = "",
+                              href = "https://connection.keboola.com",
+                              img(src = "https://d3iz2gfan5zufq.cloudfront.net/images/cloud-services/shiny-32-2.png", alt="Keboola")
+                            )    
+                        ),
+                        div(class = "kb-shiny-app-title", appTitle)
                     ),
-                    
-                    
                     div(class = "collapse navbar-collapse",
-                        div(class = "nav navbar-nav navbar-right navbar-brand",
+                        div(class = "nav navbar-nav navbar-right ",
                             fluidRow(
-                                column(2, class="kb-toolbar-btn",
-                                    uiOutput("dataModalButton")     
+                                column(3, class="kb-toolbar-btn",
+                                    uiOutput("kb_dataModalButton")     
                                 ),
-                                column(2, class="kb-toolbar-btn",
-                                    uiOutput("settingsModalButton") 
+                                column(3, class="kb-toolbar-btn",
+                                    uiOutput("kb_settingsModalButton") 
                                 ),
-                                column(8, class="kb-shiny-app-title",
-                                    appTitle
+                                column(6, class="navbar-right ",
+                                    ""
                                 )
                             )
                         )
@@ -90,7 +51,7 @@ keboolaPage <- function(page, appTitle="Default") {
             ),
             
             conditionalPanel(
-                condition = "output.loggedIn == 0",
+                condition = "input.kb_loggedIn == 0",
                 div(class="col-md-6 col-md-offset-3",
                     h3(paste0('Welcome to the ', appTitle, ' application.')),
                     div(class = "well",
@@ -98,17 +59,33 @@ keboolaPage <- function(page, appTitle="Default") {
                         p("To continue, please enter your KBC token and click \'Login\'"),
                         p("Cheers!")
                     ),
-                    textInput("token", "Enter KBC Token"),
-                    uiOutput("loginMsg"),
-                    actionButton("login","Login")
+                    textInput("kb_token", "Enter KBC Token"),
+                    selectInput("kb_bucket", "Select a Bucket", choices=c()),
+                    uiOutput("kb_loginMsg"),
+                    actionButton("kb_login","Login")
                 )
             ),
             conditionalPanel(
-                condition = "output.loggedIn == 1",
+                condition = "input.kb_loggedIn == 1 && input.kb_loading == 1",
+                div(id="kb_init_panel", class="col-md-8 col-md-offset-2",
+                    h4("Environment Initialisation"),
+                    div(id="kb_progress_panel", class="progress-panel container-fluid",""),
+                    uiOutput("kb_detourMessage"),
+                    conditionalPanel(
+                        condition = "input.kb_detour == 1",
+                        id = "kb_detourPanel",
+                        uiOutput("kb_problemTables")
+                    )
+                )
+            ),
+            conditionalPanel(
+                condition = "input.kb_loggedIn == 1 && input.kb_loading == 0",
                 page   
             ),
-            div(style = "visibility: hidden",
-                textOutput("loggedIn")
+            div(style = "display: none",
+                textInput("kb_loggedIn","",value="0"),
+                textInput("kb_loading","",value="0"),
+                textInput("kb_detour","",value="0")
             )
         )
     )
