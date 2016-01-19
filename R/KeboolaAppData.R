@@ -28,12 +28,12 @@ KeboolaAppData <- setRefClass(
         lastTable = 'character', # last table loaded from SAPI 
         maxMemory = 'numeric', #maximum allowed table size in bytes
         sourceData = 'list', # Where we have the source data
-        memoryUsage = 'numeric', 
+        memoryUsage = 'numeric',
         loadList = 'list',
         allLoaded = 'logical'
     ),
     methods = list(
-        initialize = function(sapiClient, appConfig, dbConnection, maxMemory = 500000000, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, bucketId, run_id, dbConnection, maxMemory = 500000000, session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{sapiClient} Storage API client.}
@@ -52,8 +52,8 @@ KeboolaAppData <- setRefClass(
             session <<- session
             
             client <<- sapiClient 
-            bucket <<- appConfig$bucket
-            runId <<- appConfig$runId    
+            bucket <<- bucketId
+            runId <<- run_id    
             lastTable <<- ''
             lastSaveValue <<- 0
             db <<- dbConnection
@@ -451,12 +451,12 @@ KeboolaAppData <- setRefClass(
         },
         
         saveResultUI = function(dataToSave) {
-            "This method attempts to save the data.frame given by dataToSave, 
-             and returns a UI element which alerts to the success or failure of the operation
+            "TODO
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{dataToSave} the name of the data.frame that will be saved to SAPI}
+            \\item{\\code{dataToSave} TODO}
             }}
-            \\subsection{Return Value}{The success or failure alert dom element}"
+            \\subsection{Return Value}{TODO}"
+            write("Attempting to save data",stderr())
             if (is.null(dataToSave)) {
                 return(div())
             }
@@ -483,9 +483,9 @@ KeboolaAppData <- setRefClass(
         },
         
         dataModalButton = function(dataToSave) {
-            "Method for the config button that opens the save data modal dialog
+            "TODO
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{dataToSave} the name of the data.frame that will be saved to sapi. }
+            \\item{\\code{dataToSave} TODO.}
             }}
             \\subsection{Return Value}{TODO}"
             list(

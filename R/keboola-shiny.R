@@ -10,12 +10,15 @@
 #' @field errMsg Error encountered when logging in
 #' @field loginErrrorOutput HTML element with login error
 #' @field bucketId ID of the current bucket
+#' @field runId ID of the current job
 #' @field token Current KBC token
+#' @field appId TODO
 #' @field client Instance of Storage API client
 #' @field db Instance of Redshift Driver 
 #' @field kfig Instance of Application Config
 #' @field kdata Instance of Application Data
-#' @field loading Flow control flag set to 1/true while initializing
+#' @field userRunId TODO
+#' @field loading TODO
 #' @export KeboolaShiny
 #' @exportClass KeboolaShiny
 KeboolaShiny <- setRefClass(
@@ -25,21 +28,22 @@ KeboolaShiny <- setRefClass(
         loggedIn = 'numeric',
         errMsg = 'character',
         loginErrorOutput = 'ANY',  # shiny.tag element containing login error message html
-        appConfig = 'ANY',
+        bucketId = 'character',
+        runId = 'character',
         token = 'character',
-        bucket = 'character',
-        componentId = 'character',
-        configId = 'character',
+        appId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
         kdat = 'ANY', # keboola.shiny.lib::KeboolaAppData
+        useRunId = 'logical',
         loading = 'numeric'
     ),
     methods = list(
-        initialize = function(session = getDefaultReactiveDomain()) {
+        initialize = function(requireRunId = TRUE, session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
+            \\item{\\code{requireRunId} Use RunId.}
             \\item{\\code{session} Shiny session object.}
             }}"
             if (!inherits(session, "ShinySession"))
@@ -49,18 +53,41 @@ KeboolaShiny <- setRefClass(
             loggedIn <<- 0
             errMsg <<- ''
             loginErrorOutput <<- ''
+            bucketId <<- ''
+            runId <<- ''
+            appId <<- ''
             token <<- ''
-            configId <<- ''
-            componentId <<- ''
-            bucket <<- ''
-            appConfig <<- NULL
             client <<- NULL
             db <<- NULL
             kfig <<- NULL
             kdat <<- NULL
+            useRunId <<- requireRunId
             loading <<- 1
         },
         
+        getRunId = function() {
+            "Get the runId from the query string.
+            \\subsection{Return Value}{String Run ID.}"
+            val <- as.character(parseQueryString(session$clientData$url_search)$runId)
+            if (length(val) == 0) {
+                val <- ''
+            }
+            return(val)
+        },
+
+        getBucket = function() {
+            "Get the bucket from the query string.
+            \\subsection{Return Value}{String storage Bucket ID.}"
+            val <- as.character(parseQueryString(session$clientData$url_search)$bucket)
+            if (length(val) == 0) {
+                val <- session$input$kb_bucket
+                if (length(val) == 0) {
+                    val <- ''    
+                }
+            }
+            return(val)
+        },
+
         getToken = function() {
             "Get the token from the session headers or input element.
             \\subsection{Return Value}{String KBC token}"
@@ -76,64 +103,35 @@ KeboolaShiny <- setRefClass(
             }
             return(val)
         },
-        
-        getAppConfig = function() {
-            "Get the appConfigId from the query string.
-             Apps created via the kbc ui will have config starting kbc_
-             Apps created via LG will start with lg_
-            \\subsection{Return Value}{String storage Bucket ID.}"
-            val <- as.character(parseQueryString(session$clientData$url_search)$id)
-            if (length(val) == 0) {
-                NULL    
-            } else {
-                if (length(grep("^kbc_", val)) > 0) {
-                    # app registered via kbc UI
-                    componentId <<- "shiny"
-                    configId <<- unlist(strsplit(val,"^kbc_"))[2]
-                } else if (length(grep("^lg_", val)) > 0) {
-                    # app registered via LG
-                    componentId <<- "lg-shiny"
-                    configId <<- unlist(strsplit(val,"^lg_"))[2]
-                } else {
-                    # there wasn't a valid config given
-                    stop("Sorry, I need a valid configuration in the url to continue.")
-                }
-                tryCatch({
-                    print(.self$client$listBuckets())
-                    config <- .self$client$getComponentConfiguration(componentId,configId)    
-                }, error = function(e) {
-                    # this will most likely be a 404
-                    stop(paste("Error retrieving component", componentId, "configuration", configId, e),stderr())
-                })
-                return(config$configuration)    
+
+        getAppId = function() {
+            " Get the AppId from the URL.
+            \\subsection{Return Value}{Application ID of this registered app}"
+            appId <<- unlist(strsplit(session$clientData$url_pathname,"/"))[1]
+            if (.self$appId == "") {
+                appId <<- "8f5fc4bcf3d546ad"
             }
-        },
-        getBucket = function() {
-            if (is.null(.self$appConfig$bucket)) {
-                if (length(session$input$kb_bucket) == 0) {
-                    # bucket not found in config or select input
-                    NULL    
-                } else {
-                    # bucket not found in config, but is set in select input
-                    session$input$kb_bucket
-                }
-            } else {
-                # bucket found in config
-                .self$appConfig$bucket
-            }
+            print(paste("got app id",.self$appId))
+            .self$appId
         },
         
         getBuckets = function() {
             "Return a list of accessible buckets.
-            \\subsection{Return Value}{Character vector of bucketIDs}"
+            \\subsection{Return Value}{Character vector of bucketI IDs}"
             lapply(.self$client$listBuckets(),function(bucket){ bucket$id })
+        },
+        
+        getConfigId = function() {
+            "Get the configId from the URL.
+            \\subsection{Return Value}{}"
+            as.character(parseQueryString(session$clientData$url_search)$config)
         },
         
         dbConnect = function() {
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
-            write("Establishing Database Connection", stdout())
-            credentials <- .self$client$createCredentials(.self$bucket,"shiny-lib-credentials")
+            print("in dbConnect")
+            credentials <- .self$client$createCredentials(.self$bucketId,"shiny-lib-credentials")
             credentials <- credentials$redshift
             print(credentials)
             #provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
@@ -146,7 +144,7 @@ KeboolaShiny <- setRefClass(
                 credentials$password,
                 credentials$schemaName
             )    
-            write("DB Connection Established", stdout())
+            print("initialization complete")
             TRUE
         },
         
@@ -155,12 +153,17 @@ KeboolaShiny <- setRefClass(
             \\subsection{Return Value}{List with items:
             token, runId, bucket, loggedIn, errMsg, client, ready
             }"
+            print("getLogin")
             token <<- .self$getToken()
+            runId <<- .self$getRunId()
+            bucketId <<- .self$getBucket()
+            appId <<- .self$getAppId()
             errMsg <<- ""
+            error <- NULL
             updateTextInput(session,"kb_loading",value="1")
             updateTextInput(session,"kb_loggedIn",value="1")
             
-            # check for a valid token
+            # check for valid token
             if (token != '') {
                 tryCatch({
                     client <<- keboola.sapi.r.client::SapiClient$new(token)
@@ -171,56 +174,59 @@ KeboolaShiny <- setRefClass(
             } else {
                 print('token empty')
                 loggedIn <<- 0
+                error <- div(class = 'alert alert-warning', 'Please log in.')
             }
-            error <- div()
-            if (!is.null(.self$client)) {
-                appConfig <<- .self$getAppConfig()
-                bucket <<- .self$getBucket()
-                # check to see if appConfig is in the URL
-                if (is.null(.self$appConfig)) {
-                    errMsg <<- paste(errMsg, "Could not find a valid app configuration {url id parameter}.")
-                } else {
-                    # we have some configuration
-                    if (is.null(.self$bucket)) {
-                        # the configuration doesn't have a bucket set
-                        # so we'll populate the buckets select input with all buckets that the token has access to.
-                        updateTextInput(session,"kb_token",value=.self$token)
-                        updateSelectInput(session,"kb_bucket",choices=c("",.self$getBuckets()))
-                        errMsg <<- paste(errMsg, "This application requires a valid bucket, please select one.")
-                    } 
+            print(paste("what is error?", error))
+            if (is.null(error)) {
+                print("error is null")
+                # check for runId if required
+                if (.self$useRunId == TRUE && .self$runId == "") {
+                    errMsg <<- paste(errMsg, "This application requires a valid runId in the query string.")
                 }
-                if (errMsg == '') {
-                    # Login has been sucessful
-                    error <- div()
-                    loggedIn <<- 1
-                    updateTextInput(session,"kb_loggedIn",value="1")
-                    session$sendCustomMessage(
-                        type = "updateProgress",
-                        message = list(id="authenticating", text="Authenticating", value="Completed", valueClass="text-success"))
-                    loading <<- 1   
-                } else {
+                # check for bucket
+                if (.self$bucketId == "") {
+                    if (!is.null(.self$client)) {
+                        print("have client")
+                        updateTextInput(session,"kb_token",value=.self$token)
+                        updateSelectInput(session,"kb_bucket",choices=c("",.self$getBuckets()))    
+                    }
+                    errMsg <<- paste(errMsg, "This application requires a valid bucket, please select one.")
+                }
+                write(paste("what is error message?",errMsg),stderr())
+                if (errMsg != '') {
                     errorContent <- list(errMsg,
-                                         p(
-                                             tag("label", "Token:"),
-                                             .self$token
-                                         ),
-                                         p(
-                                             tag("label", "Bucket:"),
-                                             .self$bucket
-                                         ))
-                    if (!is.null(.self$appConfig$runId)) {
+                                  p(
+                                      tag("label", "Token:"),
+                                      .self$token
+                                  ),
+                                  p(
+                                      tag("label", "Bucket:"),
+                                      .self$bucketId
+                                  ))
+                    if (.self$useRunId) {
                         errorContent[[length(errorContent) + 1]] <-
                             p(
                                 tag("label", "Run ID:"),
-                                .self$appConfig$runId
+                                .self$runId
                             )
                     }
                     error <- div(
                         class = "alert alert-danger",
                         errorContent
                     )
-                    write(paste0('Login error occured ', errMsg), stdout())
+                    print(paste0('error occured ', errMsg))
                     loggedIn <<- 0
+                } else {
+                    # Login has been sucessful
+                    updateTextInput(session,"kb_readyElem",value="1")
+                    error <- div()
+                    print('success')
+                    loggedIn <<- 1
+                    updateTextInput(session,"kb_loggedIn",value="1")
+                    session$sendCustomMessage(
+                        type = "updateProgress",
+                        message = list(id="authenticating", text="Authenticating", value="Completed", valueClass="text-success"))
+                    loading <<- 1   
                 }
             }
             loginErrorOutput <<- error
@@ -228,7 +234,8 @@ KeboolaShiny <- setRefClass(
             print('getLogin exiting')
             list(
                 token = .self$token, 
-                appConfig = .self$appConfig,
+                runId = .self$runId, 
+                bucket = .self$bucketId, 
                 loggedIn = .self$loggedIn, 
                 errorMsg = error,
                 client = .self$client,
@@ -237,18 +244,21 @@ KeboolaShiny <- setRefClass(
         },
         
         initLibs = function() {
-            "connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
-            \\subsection{Return Value}{void}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
+            print("initLibs?")
             tryCatch({
+                
+                print("connecting via provisioning client")
                 .self$dbConnect()
                 # get database credentials and connect to database
                 print("connection established")
                 # login was successful
-                write("client successful",stdout())
-                kfig <<- KeboolaAppConfig$new(.self$client, .self$componentId, .self$configId)
-                write("keboola config lib loaded",stdout())
-                kdat <<- KeboolaAppData$new(.self$client, .self$appConfig, .self$db)    
-                write("keboola data lib loaded",stdout())
+                write("client successful",stderr())
+                kfig <<- KeboolaAppConfig$new(.self$client, .self$bucketId, .self$appId)
+                write("keboola config lib loaded",stderr())
+                kdat <<- KeboolaAppData$new(.self$client, .self$bucketId, .self$runId, .self$db)    
+                write("keboola data lib loaded",stderr())
             }, error = function(e){
                 write(paste("Error initializing libraries:", e), stderr())  
             })
@@ -256,22 +266,21 @@ KeboolaShiny <- setRefClass(
         
         #' @exportMethod
         ready = function() {
-            "The DOM element id = kb_loggedIn is set to 1 when login is successful meaning that data loading can start
-            \\subsection{Return Value}{TRUE or FALSE}"
-            if (!(is.null(session$input$kb_loggedIn)) && session$input$kb_loggedIn != "0") {
-                print("loggedIn, ready.")
+            "TODO
+            \\subsection{Return Value}{TODO}"
+            if (!(is.null(session$input$kb_readyElem)) && session$input$kb_readyElem != "0") {
+                print("READy")
                 TRUE
             } else {
-                print("not loggedIn, not ready.")
+                print("NOT READY")
                 FALSE
             }
         },
         
         #' @exportMethod
         sourceData = function() {
-            "This is a hack used to catch the case when the data-too-large detour has been completed and 
-             to resume the startup operations in that case
-            \\subsection{Return Value}{list of data.frames containing sourceData}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
             reactive({
                 if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
                     print("TRYING TO CONCLUDE STARTUP")
@@ -295,12 +304,12 @@ KeboolaShiny <- setRefClass(
         
         #' @exportMethod
         loadTables = function(tables, options) {
-            "load tables specified in the parameter list tables from storage
+            "TODO
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{tables} list of tables to load}
-            \\item{\\code{options} startup method options}
+            \\item{\\code{tables} TODO}
+            \\item{\\code{options} TODO}
             }}
-            \\subsection{Return Value}{TRUE if tables succesfully loaded.  FALSE if data was too big and reduction is required.}"
+            \\subsection{Return Value}{TODO}"
             # add defaults if they are missing
             if (missing(options)) {
                 options <- list(
@@ -311,13 +320,14 @@ KeboolaShiny <- setRefClass(
             # check the sizes of the tables in case any are too big
             # checkTables will return a list of tables that are "too big" to load as is
             problemTables <- .self$kdat$checkTables(tables)
-            
+            print(paste("GOT MEM TRIGGER",names(problemTables)))
             if (!is.null(problemTables)) {
                 # Set the UI detour flag
                 updateTextInput(session, "kb_detour", value="1")
                 
                 # we found that a table was too huge so we'll initiate diversion...
-                print(paste("Some tables are TOO BIG:", names(problemTables)))
+                print(paste("Some tables are TOO BIG", names(problemTables)))
+                print(problemTables)
                 session$output$kb_problemTables <- renderUI(
                     .self$kdat$problemTablesUI(problemTables)
                 )
@@ -332,45 +342,46 @@ KeboolaShiny <- setRefClass(
         },
         
         concludeStartup = function(options) {
-            "Resume the startup tasks after data loading
+            "TODO
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{options} initial startup options}
+            \\item{\\code{options} TODO}
             }}
-            \\subsection{Return Value}{void}"
+            \\subsection{Return Value}{TODO}"
             session$sendCustomMessage(
                 type = "updateProgress",
                 message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary")
             )
             
-            # if the data storing option flag is set, we load our output elements with the UI functions.
             if (!(is.null(options$dataToSave))) {
                 session$output$kb_dataModalButton <- renderUI({.self$kdat$dataModalButton(options$dataToSave)})
                 session$output$kb_saveResultUI <- renderUI({.self$kdat$saveResultUI(options$dataToSave)})
             } else {
                 session$output$kb_saveResultUI <- renderUI({div(class="warning","Sorry, this app does not support data saving")})    
             }
-            
+            print(paste("post data to save", names(.self$kdat$sourceData)))
+            print(paste("options cleandata?", options$cleanData))
+            print(c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData))
+            print("was that true?")
             if (options$cleanData == TRUE && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
                 kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id", "_timestamp")]
                 print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanData)))
                 kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
             }
             
+            print("data cleaned")
             if (options$description == TRUE) {
                 print("finished detour, get description")
                 kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
                 session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
             }
-            
-            # if the input config option (the callback function) is given,
-            # we need to populate the session output object with the UI elements for the modal.
+            print("description")
             if (!(is.null(options$configCallback))) {
                 print("init configs")
                 session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
                 session$output$kb_saveConfigUI <- renderUI({.self$kfig$saveConfigUI()})
                 session$output$kb_saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI()})
                 session$output$kb_loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(options$configCallback)})
-                session$output$kb_configSelectorUI <- renderUI({.self$kfig$configSelectorUI()})
+                session$output$kb_configListUI <- renderUI({.self$kfig$configListUI()})
                 session$output$kb_deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI()})
             }
             
@@ -394,7 +405,8 @@ KeboolaShiny <- setRefClass(
                 customElements = NULL   # function to process custom descriptor elements           
             )
         ){
-            "This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
+            "This method returns a list of all elements from the shared library that are destined for the shiny server output object
+            They are mainly renderUI functions, but can be any render function available in shiny
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{options} List with items:
             appTitle - the title of the application
@@ -404,20 +416,21 @@ KeboolaShiny <- setRefClass(
             description - whether or not to include a description object
             customElements - the method for processing custom elements of the description}
             }}
-            \\subsection{Return Value}{list containing loginInfo}"
+            \\subsection{Return Value}{TODO}"
             ret <- list()
             if (.self$loggedIn == 1 && .self$loading == 1 && !(is.null(.self$kdat)) && .self$kdat$allLoaded == TRUE) {
                 session$sendCustomMessage(
                     type = "updateProgress",
                     message = list(id="data_retrieval", text="Fetching Data", value="Completed", valueClass="text-success"))
                 
-                # Finish the startup process 
+                # Finish the startup process  TODO, better way to pass through parameters, maybe ...
                 concludeStartup(options)
-                write("Startup Finished.", stdout())
+                print("RETURNING ABORT")
                 return()
             }
             session$output$kb_loginMsg <- renderUI({.self$loginErrorOutput})
             
+            print("doing login")
             session$sendCustomMessage(
                 type = "updateProgress",
                 message = list(id="authenticating", text="Authenticating", value="In Progress", valueClass="text-primary"))

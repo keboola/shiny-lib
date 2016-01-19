@@ -22,6 +22,9 @@ keboolaPage <- function(page, appTitle="Default") {
         div(
             class="container-fluid",
             div(class = "navbar navbar-static-top",
+                div(style="display:none;",
+                    textInput("kb_readyElem","hidden element", value="0")
+                ),
                 div(class = "container-fluid",
                     div(class = "navbar-left kb-navbar-top",                        
                         div(class = "kb-logo",

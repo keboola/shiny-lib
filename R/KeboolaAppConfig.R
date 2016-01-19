@@ -11,25 +11,27 @@ KeboolaAppConfig <- setRefClass(
     fields = list(
         session = 'ANY', # shiny server session
         client = 'ANY', # keboola.sapi.r.client::SapiClient
-        # the following fields are helper hacks for ui flow control
+        bucket = 'character',
+        runId = 'character',
+        appId = 'character',
         lastModalButtonValue = 'numeric',
         lastLoadConfigValue = 'numeric',
         lastSaveConfigValue = 'numeric',
         lastDeleteConfigValue = 'numeric',
         lastConfirmDeleteValue = 'numeric',
         lastConfirmCancelValue = 'numeric',
-        component = 'character',
-        configId = 'character',
-        clearModal = 'logical'
+        clearModal = 'logical',
+        shinyBaseUrl = 'character'
     ),
     methods = list(
-        initialize = function(sapiClient, component, configId, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, bucketId, appId, shinyUrl = "https://shiny.keboola.com/shiny/", session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{sapiClient} Storage API client.}
             \\item{\\code{bucket} Bucket where config table is stored.}
             \\item{\\code{shinyUrl} Shiny Bundle API home URL.
-            It will be read from command line argument.}
+            It will be read from command line argument.
+            http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/}
             }}"
             if (!inherits(session, "ShinySession"))
                 stop("'session' is not a ShinySession object.")
@@ -46,25 +48,55 @@ KeboolaAppConfig <- setRefClass(
             lastModalButtonValue <<- 0
             clearModal <<- FALSE
             client <<- sapiClient
-            component <<- component
-            configId <<- configId
+            bucket <<- bucketId
+            appId <<- appId
+            shinyBaseUrl <<- shinyUrl
         },
-        
+       
         configs = function() {
-            "reactive wrapper around our config fetcher
-            \\subsection{Return Value}{list of app input configurations}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
             reactive({
                 .self$getConfigs()
             })
+        },
+        
+        configChoices = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
+            reactive({
+                configs <- .self$configs()()
+                choices <- list()
+                for (config in configs) {
+                    choices[[paste(config$comment,config$dateCreated,sep=" -- ")]] <- config$configId
+                }
+                choices    
+            })
+        },
+        
+        selectedConfig = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
+            configId <- session$input$kb_config
+            if (is.null(configId) || configId == "None") return(NULL)
+            configs <- .self$configs()()
+            config <- lapply(configs,function(config) {
+                if (config$configId == configId) {
+                    jsonlite::fromJSON(config$configuration)
+                } else {
+                    NULL
+                }
+            })
+            Filter(Negate(is.null),config)[[1]]   
         },
         
         getConfigs = function() {
             "Get app configurations from the Shiny Bundle.
             \\subsection{Return Value}{List of app configurations.}"
             tryCatch({
-                configs <- .self$client$listConfigurationRows(
-                    .self$component,
-                    .self$configId
+                configs <- .self$client$genericGet(
+                    paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config"),
+                    query = list(bucket = .self$bucket)
                 )
                 return(configs)
             }, error = function(e) {
@@ -73,48 +105,9 @@ KeboolaAppConfig <- setRefClass(
             })    
         },
         
-        configChoices = function() {
-            "This returns a list of 'config name -- date created' with key configId
-             the returned list is used to populate the options for the config select input
-            \\subsection{Return Value}{array of configId -> 'configname -- date' }"
-            reactive({
-                configs <- .self$configs()()
-                print("these are the retrieved configs:")
-                print(configs)
-                choices <- list()
-                for (config in configs) {
-                    #choices[[paste(config$id,config$dateCreated,sep=" -- ")]] <- config$id
-                    choices[[config$id]] <- config$id
-                }
-                print("what are my choices?")
-                print(choices)
-                choices    
-            })
-        },
-        
-        selectedConfig = function() {
-            "Uses the configId from the configuration select input to 
-             return the currently selected configuration
-            \\subsection{Return Value}{Currently selected app configuration}"
-            configId <- session$input$kb_config
-            if (is.null(configId) || configId == "None") return(NULL)
-            configs <- .self$configs()()
-            config <- lapply(configs,function(config) {
-                if (config$id == configId) {
-                    # matches selected config, return configuration property as list
-                    jsonlite::fromJSON(config$configuration)
-                } else {
-                    NULL
-                }
-            })
-            # the config object is full of nulls for non-matches, 
-            # so we remove them and return the matching elementt
-            Filter(Negate(is.null),config)[[1]]$config 
-        },
-        
         saveConfig = function() {
-            "This method stores the entire session$input object as a row in the app configuration.
-             Note that inputs with prefix kb_ will be omitted because they are system elements.
+            "This method stores the entire session$input object in the kbc storage
+            in the bucket being used by the app
             \\subsection{Return Value}{TRUE, will throw an error if something goes wrong.}"
            if (is.null(.self$client)) {
                stop("Not connected to SAPI.")
@@ -122,43 +115,39 @@ KeboolaAppConfig <- setRefClass(
            tryCatch({
                configs <- list()
                for (name in names(session$input)) {
-                   # only store non-system inputs
-                   if (length(grep("^kb_", name)) == 0) {
-                       configs[[name]] <- session$input[[name]]      
-                   }
+                   configs[[name]] <- session$input[[name]]  
                }
                obj <- list()
-               obj$comment <- session$input$kb_configComment
+               obj$comment <- configs$kb_configComment
+               obj$bucket <- .self$bucket
                obj$config <- configs
-               resp <- .self$client$createConfigurationRow(
-                   .self$component,
-                   .self$configId,
-                   gsub("-+","-", gsub("[^A-Za-z0-9_]", "-",obj$comment)), # replace non alphanumerics with dashes
+               resp <- .self$client$genericPost(
+                   paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config"),
                    jsonlite::toJSON(obj, auto_unbox=TRUE))
-               TRUE
+               return(TRUE)
            }, error = function(e) {
                # convert the error to a more descriptive message
                stop(paste0("Error saving config (", e, ')'))
            })
         },
         
-        deleteConfig = function(rowId) {
-            "Delete the configuration
+        deleteConfig = function(configId) {
+            "TODO
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{rowId} id of the configuration row}
+            \\item{\\code{configId} TODO}
             }}
-            \\subsection{Return Value}{resp will be TRUE if successful. otherwise an error will be thrown.}"
-            resp <- .self$client$deleteConfigurationRow(
-                .self$component,
-                .self$configId,
-                rowId
+            \\subsection{Return Value}{TODO}"
+            resp <- .self$client$genericDelete(
+                paste0(.self$shinyBaseUrl,"apps/",.self$appId,"/config/", configId), 
+                query = list(bucket = .self$bucket)
             )
+            print("Config", configId, "deleted!")
             resp
         },
         
         settingsModalButton = function() {
-            "the toolbar button that brings up the configuration settings modal dialog
-            \\subsection{Return Value}{list(button)}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
             list(
                 keboolaModalButton(
                     "kb_configModal",
@@ -171,7 +160,7 @@ KeboolaAppConfig <- setRefClass(
         },
         
         clearForm = function(input) {
-            "Clear all form elements.  Triggered on form load or exit
+            "TODO
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{input} TODO}
             }}
@@ -185,18 +174,18 @@ KeboolaAppConfig <- setRefClass(
                             input$kb_configModalButton > .self$lastModalButtonValue) {
                         lastModalButtonValue <<- as.numeric(input$kb_configModalButton)
                         clearModal <<- TRUE
-                        TRUE
+                        return(TRUE)
                     } else {
                         clearModal <<- FALSE
-                        FALSE
+                        return(FALSE)
                     }    
                 })
             })
         },
         
         configSettingsUI = function() {
-            "The main UI modal form
-            \\subsection{Return Value}{The config settings modal form}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
             input <- session$input
             ret <- list(
                        div(style="text-align:right;padding:0 19px 15px 0;",
@@ -206,7 +195,7 @@ KeboolaAppConfig <- setRefClass(
                        wellPanel(
                             uiOutput("kb_loadConfigResultUI"),
                             uiOutput("kb_deleteConfigResultUI"),
-                            uiOutput("kb_configSelectorUI"),
+                            uiOutput("kb_configListUI"),
                             fluidRow(
                                 column(6,actionButton("kb_loadConfig", "Load Selected Configuration",
                                                       `data-toggle` = "kfig-alert", 
@@ -221,9 +210,9 @@ KeboolaAppConfig <- setRefClass(
             ret    
         },
         
-        configSelectorUI = function() {
-            "The config select element.
-            \\subsection{Return Value}{select input with id=kb_config}"
+        configListUI = function() {
+            "TODO
+            \\subsection{Return Value}{TODO}"
             selectInput("kb_config","Configuration",c("None",configChoices()()))
         },
         
@@ -246,9 +235,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         saveConfigResultUI = function() {
-            "Saves the app input configuration
-             returns the UI depending on the success of the operation
-            \\subsection{Return Value}{list(UI elements)}"
+            "TODO
+            \\subsection{Return Value}{TODO}"
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
@@ -257,7 +245,7 @@ KeboolaAppConfig <- setRefClass(
                 if (nchar(input$kb_configComment) > 0) {
                     tryCatch({
                         print("saving config")
-                        .self$saveConfig()
+                        .self$saveConfig(session)
                         print("config saved")
                         updateSelectInput(session,"kb_config", choices=c("None",configChoices()()))
                         ret <- list(ret,list(div(class = 'kfig-alert alert alert-success', "Configuration successfully saved.")))
@@ -281,21 +269,13 @@ KeboolaAppConfig <- setRefClass(
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
-            print(paste(
-                "kb_loadConfig", input$kb_loadConfig,
-                "selfLastLoadConfig", .self$lastLoadConfigValue,
-                "kb_config", input$kb_config,
-                "clearmodal", .self$clearModal
-            ))
-            if (!is.na(input$kb_loadConfig) && 
-                    input$kb_loadConfig > 0 && 
-                    input$kb_loadConfig > .self$lastLoadConfigValue && 
-                    #input$kb_config != "None" && 
-                    !.self$clearModal) {
+            if (input$kb_loadConfig > 0 && input$kb_loadConfig > .self$lastLoadConfigValue && input$kb_config != "None" && !.self$clearModal) {
                 tryCatch({
+                    print("getting selected config")
                     config <- .self$selectedConfig()
+                    print("calling the callback function")
                     callback(config)
-                    print("config callback executed")
+                    print("callback executed")
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
                 }, error = function(e) {
                     ret <- list(ret,list(div(class = 'alert alert-danger', paste0("Error loading configuration: ", e))))
@@ -328,7 +308,7 @@ KeboolaAppConfig <- setRefClass(
                                actionButton("kb_confirmDelete",'Yes'),
                                actionButton("kb_confirmCancel",'No'))
                 } else if (!is.null(input$kb_confirmDelete) && input$kb_confirmDelete > .self$lastConfirmDeleteValue && !.self$clearModal) {
-                    print(paste0("Confirmed to delete: ", input$kb_config))
+                    print("delete confirmed")
                     lastConfirmDeleteValue <<- as.numeric(input$kb_confirmDelete)
                     tryCatch({
                         print(paste("deleting config", input$kb_config))
