@@ -53,7 +53,11 @@ KeboolaAppData <- setRefClass(
             
             client <<- sapiClient 
             bucket <<- appConfig$bucket
-            runId <<- appConfig$runId    
+            if (is.null(appConfig$runId)) {
+                runId <<- ''
+            } else {
+                runId <<- appConfig$runId        
+            }
             lastTable <<- ''
             lastSaveValue <<- 0
             db <<- dbConnection
