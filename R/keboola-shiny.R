@@ -133,18 +133,17 @@ KeboolaShiny <- setRefClass(
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
             write("Establishing Database Connection", stdout())
-            credentials <- .self$client$createCredentials(.self$bucket,"shiny-lib-credentials")
-            credentials <- credentials$redshift
-            print(credentials)
-            #provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$runId)
-            #credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
+            #credentials <- .self$client$createCredentials(.self$bucket,"shiny-lib-credentials")
+            #credentials <- credentials$redshift
+            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$appConfig$runId)
+            credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- RedshiftDriver$new()
             db$connect(
-                credentials$host, 
-                credentials$databaseName,
+                credentials$hostname, 
+                credentials$db,
                 credentials$user,
                 credentials$password,
-                credentials$schemaName
+                credentials$schema
             )    
             write("DB Connection Established", stdout())
             TRUE
