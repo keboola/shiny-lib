@@ -491,7 +491,7 @@ KeboolaAppData <- setRefClass(
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{dataToSave} the name of the data.frame that will be saved to sapi. }
             }}
-            \\subsection{Return Value}{TODO}"
+            \\subsection{Return Value}{list(keboolaModalButton)}"
             list(
                 keboolaModalButton(
                     "kb_dataModal",
@@ -504,13 +504,13 @@ KeboolaAppData <- setRefClass(
         },
         
         previewData = function(tableMeta) {
-            "TODO
+            "Offers a limited view of sample data
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{tableMeta} TODO}
+            \\item{\\code{tableMeta} The table object returned from SAPI}
             }}
-            \\subsection{Return Value}{TODO}"
+            \\subsection{Return Value}{reactive construct.  updated DOM is stored in session$output}"
             reactive({
-                session$output[[paste0("kb_",tableMeta$name,"_columnFiltersUI")]] <- renderUI({
+                columnFiltersUI <- 
                     lapply(session$input[[paste0("kb_",tableMeta$name,"_filters")]],function(arg){
                         if (!is.null(session$input[[paste0("kb_",arg,"_filter")]])) {
                             textInput(paste0("kb_",arg,"_filter"), paste(arg,"Filter"), value = session$input[[paste0("kb_",arg,"_filter")]])
@@ -518,6 +518,8 @@ KeboolaAppData <- setRefClass(
                             textInput(paste0("kb_",arg,"_filter"), paste(arg,"Filter"))
                         }
                     })
+                session$output[[paste0("kb_",tableMeta$name,"_columnFiltersUI")]] <- renderUI({
+                    columnFiltersUI
                 })
                 refresh <- session$input[[paste0("kb_",tableMeta$name,"_refresh")]]
                 load <- as.numeric(session$input[[paste0("kb_",tableMeta$name,"_load")]])
@@ -640,11 +642,11 @@ KeboolaAppData <- setRefClass(
         },
         
         problemTablesUI = function(problemTables) {
-            "TODO
+            "Creates and returns a UI for the user to reduce the amount of data being loaded to 'hopefully' under the memory limit
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{problemTables} TODO}
+            \\item{\\code{problemTables} A list of reducible tables that the UI will display as tabbed editors}
             }}
-            \\subsection{Return Value}{TODO}"
+            \\subsection{Return Value}{A tabset panel with one tab per reducible table}"
             print(paste("trying to make tab for ", names(problemTables)))
             tabs <- lapply(names(problemTables),function(table){
                 tableMeta <- problemTables[[table]]

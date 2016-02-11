@@ -5,71 +5,75 @@
 \alias{KeboolaAppConfig}
 \alias{KeboolaAppConfig-class}
 \title{This is the configuration component library for managing app configurations}
-\arguments{
-\item{sapiClient}{- Keboola.sapi.r.client::SapiClient}
-
-\item{bucket}{- Bucket where config table is stored}
-
-\item{shinyUrl}{- Shiny Bundle API home URL
-it will be read from command line argument.
-"http://shiny.kbc-devel-02.keboola.com/app_dev.php/shiny/"}
-}
 \description{
 This is the configuration component library for managing app configurations
 }
 \section{Methods}{
 
 \describe{
-\item{\code{clearForm(input)}}{TODO
+\item{\code{clearForm(input)}}{Clear all form elements.  Triggered on form load or exit
 \subsection{Parameters}{\itemize{
 \item{\code{input} TODO}
 }}
 \subsection{Return Value}{TODO}}
 
-\item{\code{configChoices()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{configChoices()}}{This returns a list of 'config name -- date created' with key configId
+ the returned list is used to populate the options for the config select input
+\subsection{Return Value}{array of configId -> 'configname -- date' }}
 
-\item{\code{configListUI()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{configs()}}{reactive wrapper around our config fetcher
+\subsection{Return Value}{list of app input configurations}}
 
-\item{\code{configs()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{configSelectorUI()}}{The config select element.
+\subsection{Return Value}{select input with id=kb_config}}
 
-\item{\code{configSettingsUI()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{configSettingsUI()}}{The main UI modal form
+\subsection{Return Value}{The config settings modal form}}
 
-\item{\code{deleteConfig(configId)}}{TODO
+\item{\code{deleteConfig(rowId)}}{Delete the configuration
 \subsection{Parameters}{\itemize{
-\item{\code{configId} TODO}
+\item{\code{rowId} id of the configuration row}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{resp will be TRUE if successful. otherwise an error will be thrown.}}
 
-\item{\code{deleteConfigResultUI()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{deleteConfigResultUI()}}{Actually performs the delete and returns a DOM element indicating operation status
+\subsection{Return Value}{DOM}}
 
 \item{\code{getConfigs()}}{Get app configurations from the Shiny Bundle.
 \subsection{Return Value}{List of app configurations.}}
 
-\item{\code{loadConfigResultUI(callback)}}{TODO
+\item{\code{initialize(sapiClient, component, configId,
+  session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
-\item{\code{callback} TODO}
-}}
-\subsection{Return Value}{TODO}}
+\item{\code{sapiClient} Storage API client.}
+\item{\code{bucket} Bucket where config table is stored.}
+\item{\code{shinyUrl} Shiny Bundle API home URL.
+It will be read from command line argument.}
+}}}
 
-\item{\code{saveConfig()}}{This method stores the entire session$input object in the kbc storage
-in the bucket being used by the app
+\item{\code{loadConfigResultUI(callback)}}{Returns DOM element depending on the success/failure of the config load
+\subsection{Parameters}{\itemize{
+\item{\code{callback} The method to be executed with the loaded config.  
+        This method will generally be tasked with updating input elements with the values which were stored in the config.}
+}}
+\subsection{Return Value}{DOM element}}
+
+\item{\code{saveConfig()}}{This method stores the entire session$input object as a row in the app configuration.
+ Note that inputs with prefix kb_ will be omitted because they are system elements.
 \subsection{Return Value}{TRUE, will throw an error if something goes wrong.}}
 
-\item{\code{saveConfigResultUI()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{saveConfigResultUI()}}{Saves the app input configuration
+ returns the UI depending on the success of the operation
+\subsection{Return Value}{list(UI elements)}}
 
-\item{\code{saveConfigUI()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{saveConfigUI()}}{sets DOM for the save configuration form.  text input and button
+\subsection{Return Value}{DOM}}
 
-\item{\code{selectedConfig()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{selectedConfig()}}{Uses the configId from the configuration select input to 
+ return the currently selected configuration
+\subsection{Return Value}{Currently selected app configuration}}
 
-\item{\code{settingsModalButton()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{settingsModalButton()}}{the toolbar button that brings up the configuration settings modal dialog
+\subsection{Return Value}{list(button)}}
 }}
 

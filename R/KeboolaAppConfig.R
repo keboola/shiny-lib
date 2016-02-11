@@ -18,9 +18,9 @@ KeboolaAppConfig <- setRefClass(
         lastDeleteConfigValue = 'numeric',
         lastConfirmDeleteValue = 'numeric',
         lastConfirmCancelValue = 'numeric',
+        clearModal = 'logical',
         component = 'character',
-        configId = 'character',
-        clearModal = 'logical'
+        configId = 'character'
     ),
     methods = list(
         initialize = function(sapiClient, component, configId, session = getDefaultReactiveDomain()) {
@@ -79,15 +79,11 @@ KeboolaAppConfig <- setRefClass(
             \\subsection{Return Value}{array of configId -> 'configname -- date' }"
             reactive({
                 configs <- .self$configs()()
-                print("these are the retrieved configs:")
-                print(configs)
                 choices <- list()
                 for (config in configs) {
                     #choices[[paste(config$id,config$dateCreated,sep=" -- ")]] <- config$id
                     choices[[config$id]] <- config$id
                 }
-                print("what are my choices?")
-                print(choices)
                 choices    
             })
         },
@@ -96,11 +92,11 @@ KeboolaAppConfig <- setRefClass(
             "Uses the configId from the configuration select input to 
              return the currently selected configuration
             \\subsection{Return Value}{Currently selected app configuration}"
-            configId <- session$input$kb_config
-            if (is.null(configId) || configId == "None") return(NULL)
+            selectedConfigId <- session$input$kb_config
+            if (is.null(selectedConfigId) || selectedConfigId == "None") return(NULL)
             configs <- .self$configs()()
             config <- lapply(configs,function(config) {
-                if (config$id == configId) {
+                if (config$id == selectedConfigId) {
                     # matches selected config, return configuration property as list
                     jsonlite::fromJSON(config$configuration)
                 } else {
@@ -228,8 +224,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         saveConfigUI = function() {
-            "TODO
-            \\subsection{Return Value}{TODO}"
+            "sets DOM for the save configuration form.  text input and button
+            \\subsection{Return Value}{DOM}"
             ret <- list()
             input <- session$input
             .self$clearForm(input)()
@@ -273,11 +269,12 @@ KeboolaAppConfig <- setRefClass(
         },
         
         loadConfigResultUI = function(callback) {
-            "TODO
+            "Returns DOM element depending on the success/failure of the config load
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{callback} TODO}
+            \\item{\\code{callback} The method to be executed with the loaded config.  
+                    This method will generally be tasked with updating input elements with the values which were stored in the config.}
             }}
-            \\subsection{Return Value}{TODO}"
+            \\subsection{Return Value}{DOM element}"
             input <- session$input
             ret <- list()
             .self$clearForm(input)()
@@ -306,8 +303,8 @@ KeboolaAppConfig <- setRefClass(
         },
         
         deleteConfigResultUI = function() {
-            "TODO
-            \\subsection{Return Value}{TODO}"
+            "Actually performs the delete and returns a DOM element indicating operation status
+            \\subsection{Return Value}{DOM}"
             ret <- list()
             session$input$kb_deleteConfig
             session$input$kb_confirmDelete

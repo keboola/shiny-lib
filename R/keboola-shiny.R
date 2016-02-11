@@ -99,7 +99,6 @@ KeboolaShiny <- setRefClass(
                     stop("Sorry, I need a valid configuration in the url to continue.")
                 }
                 tryCatch({
-                    print(.self$client$listBuckets())
                     config <- .self$client$getComponentConfiguration(componentId,configId)    
                 }, error = function(e) {
                     # this will most likely be a 404
@@ -135,7 +134,8 @@ KeboolaShiny <- setRefClass(
             write("Establishing Database Connection", stdout())
             #credentials <- .self$client$createCredentials(.self$bucket,"shiny-lib-credentials")
             #credentials <- credentials$redshift
-            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, .self$appConfig$runId)
+            runId <- if (is.null(.self$appConfig$runId)) "" else .self$appConfig$runId
+            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, runId)
             credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- RedshiftDriver$new()
             db$connect(
@@ -253,7 +253,7 @@ KeboolaShiny <- setRefClass(
             })
         },
         
-        #' @exportMethod
+        
         ready = function() {
             "The DOM element id = kb_loggedIn is set to 1 when login is successful meaning that data loading can start
             \\subsection{Return Value}{TRUE or FALSE}"
@@ -266,7 +266,7 @@ KeboolaShiny <- setRefClass(
             }
         },
         
-        #' @exportMethod
+        
         sourceData = function() {
             "This is a hack used to catch the case when the data-too-large detour has been completed and 
              to resume the startup operations in that case
@@ -280,7 +280,7 @@ KeboolaShiny <- setRefClass(
             })                
         },
         
-        #' @exportMethod
+        
         loadTable = function(prettyName, name) {
             "Load table from Storage. 
             (Exposed wrapper for \\code{KeboolaAppData} method).
@@ -292,7 +292,7 @@ KeboolaShiny <- setRefClass(
             .self$kdat$loadTable(prettyName, name)
         },
         
-        #' @exportMethod
+        
         loadTables = function(tables, options) {
             "load tables specified in the parameter list tables from storage
             \\subsection{Parameters}{\\itemize{
@@ -317,9 +317,9 @@ KeboolaShiny <- setRefClass(
                 
                 # we found that a table was too huge so we'll initiate diversion...
                 print(paste("Some tables are TOO BIG:", names(problemTables)))
-                session$output$kb_problemTables <- renderUI(
+                session$output$kb_problemTables <- renderUI({
                     .self$kdat$problemTablesUI(problemTables)
-                )
+                })  
                 FALSE    
             } else {
                 # no table was deemed too big so we go ahead with loading
@@ -382,7 +382,7 @@ KeboolaShiny <- setRefClass(
             print("STARTUP CONClUDED")
         },
         
-        #' @exportMethod
+        
         startup = function(options = list(
                 appTitle = "",          # application title
                 tables = list(),        # list of tables to load from sapi list(localname = sapiname)

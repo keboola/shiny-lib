@@ -21,11 +21,7 @@ Helper Library for Keboola Shiny Applications
 
 \item{\code{bucketId}}{ID of the current bucket}
 
-\item{\code{runId}}{ID of the current job}
-
 \item{\code{token}}{Current KBC token}
-
-\item{\code{appId}}{TODO}
 
 \item{\code{client}}{Instance of Storage API client}
 
@@ -35,53 +31,43 @@ Helper Library for Keboola Shiny Applications
 
 \item{\code{kdata}}{Instance of Application Data}
 
-\item{\code{userRunId}}{TODO}
-
-\item{\code{loading}}{TODO}
+\item{\code{loading}}{Flow control flag set to 1/true while initializing}
 }}
 \section{Methods}{
 
 \describe{
-\item{\code{concludeStartup(options)}}{TODO
+\item{\code{concludeStartup(options)}}{Resume the startup tasks after data loading
 \subsection{Parameters}{\itemize{
-\item{\code{options} TODO}
+\item{\code{options} initial startup options}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{void}}
 
 \item{\code{dbConnect()}}{Establish a connection via provisioning client credentials.
 \subsection{Return Value}{TRUE}}
 
-\item{\code{getAppId()}}{Get the AppId from the URL.
-\subsection{Return Value}{Application ID of this registered app}}
-
-\item{\code{getBucket()}}{Get the bucket from the query string.
+\item{\code{getAppConfig()}}{Get the appConfigId from the query string.
+ Apps created via the kbc ui will have config starting kbc_
+ Apps created via LG will start with lg_
 \subsection{Return Value}{String storage Bucket ID.}}
 
 \item{\code{getBuckets()}}{Return a list of accessible buckets.
-\subsection{Return Value}{Character vector of bucketI IDs}}
-
-\item{\code{getConfigId()}}{Get the configId from the URL.
-\subsection{Return Value}{}}
+\subsection{Return Value}{Character vector of bucketIDs}}
 
 \item{\code{getLogin()}}{Verify login information and initialize application.
 \subsection{Return Value}{List with items:
 token, runId, bucket, loggedIn, errMsg, client, ready
 }}
 
-\item{\code{getRunId()}}{Get the runId from the query string.
-\subsection{Return Value}{String Run ID.}}
-
 \item{\code{getToken()}}{Get the token from the session headers or input element.
 \subsection{Return Value}{String KBC token}}
 
-\item{\code{initialize(requireRunId = TRUE, session = getDefaultReactiveDomain())}}{Constructor.
+\item{\code{initialize(session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
-\item{\code{requireRunId} Use RunId.}
 \item{\code{session} Shiny session object.}
 }}}
 
-\item{\code{initLibs()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{initLibs()}}{connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
+\subsection{Return Value}{void}}
 
 \item{\code{loadTable(prettyName, name)}}{Load table from Storage. 
 (Exposed wrapper for \code{KeboolaAppData} method).
@@ -91,23 +77,23 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 }}
 \subsection{Return Value}{data.frame with table data}}
 
-\item{\code{loadTables(tables, options)}}{TODO
+\item{\code{loadTables(tables, options)}}{load tables specified in the parameter list tables from storage
 \subsection{Parameters}{\itemize{
-\item{\code{tables} TODO}
-\item{\code{options} TODO}
+\item{\code{tables} list of tables to load}
+\item{\code{options} startup method options}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{TRUE if tables succesfully loaded.  FALSE if data was too big and reduction is required.}}
 
-\item{\code{ready()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{ready()}}{The DOM element id = kb_loggedIn is set to 1 when login is successful meaning that data loading can start
+\subsection{Return Value}{TRUE or FALSE}}
 
-\item{\code{sourceData()}}{TODO
-\subsection{Return Value}{TODO}}
+\item{\code{sourceData()}}{This is a hack used to catch the case when the data-too-large detour has been completed and 
+ to resume the startup operations in that case
+\subsection{Return Value}{list of data.frames containing sourceData}}
 
 \item{\code{startup(options = list(appTitle = "", tables = list(), cleanData = FALSE,
   dataToSave = NULL, configCallback = NULL, description = FALSE, customElements
-  = NULL))}}{This method returns a list of all elements from the shared library that are destined for the shiny server output object
-They are mainly renderUI functions, but can be any render function available in shiny
+  = NULL))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
 \subsection{Parameters}{\itemize{
 \item{\code{options} List with items:
 appTitle - the title of the application
@@ -117,6 +103,6 @@ configCallback - the method which is to be invoked when a configuration is loade
 description - whether or not to include a description object
 customElements - the method for processing custom elements of the description}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{list containing loginInfo}}
 }}
 

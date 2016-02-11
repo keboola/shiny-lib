@@ -38,11 +38,17 @@ This is the configuration component library for managing app data loading / savi
 \section{Methods}{
 
 \describe{
-\item{\code{dataModalButton(dataToSave)}}{TODO
+\item{\code{checkTables(tables)}}{Checks the table list to see if maximum application memory will be exceeded by retrieving the data
 \subsection{Parameters}{\itemize{
-\item{\code{dataToSave} TODO.}
+\item{\code{tables} List of tables to load from SAPI.}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{If memory exceeded - a list of table metadata for each requested table, else NULL.}}
+
+\item{\code{dataModalButton(dataToSave)}}{Method for the config button that opens the save data modal dialog
+\subsection{Parameters}{\itemize{
+\item{\code{dataToSave} the name of the data.frame that will be saved to sapi. }
+}}
+\subsection{Return Value}{list(keboolaModalButton)}}
 
 \item{\code{getCleanData(types, cleanData)}}{Apply column types detected by LG to a data frame.
 \subsection{Parameters}{\itemize{
@@ -79,13 +85,7 @@ function should return a single HTML element. Pass NULL to ignore custom element
 }}
 \subsection{Return Value}{List of tables. each element has required name, and optional reducible.}}
 
-\item{\code{checkTables(tables)}}{Checks the table list to see if maximum application memory will be exceeded by retrieving the data
-\subsection{Parameters}{\itemize{
-\item{\code{tables} List of tables to load from SAPI.}
-}}
-\subsection{Return Value}{If memory exceeded - a list of table metadata for each requested table, else NULL.}}
-
-\item{\code{initialize(sapiClient, bucketId, run_id, dbConnection, maxMemory = 1e+09,
+\item{\code{initialize(sapiClient, appConfig, dbConnection, maxMemory = 5e+08,
   session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
 \item{\code{sapiClient} Storage API client.}
@@ -93,8 +93,7 @@ function should return a single HTML element. Pass NULL to ignore custom element
 \item{\code{run_id} The runId of the data to load.}
 \item{\code{dbConnection} An established database connection.}
 \item{\code{maxMemory} Maximum sourceData memory allocation.}
-}}
-\subsection{Return Value}{TODO}}
+}}}
 
 \item{\code{loadTable(prettyName, table)}}{Internal method to retrieve table data from Redshift 
 \subsection{Parameters}{\itemize{
@@ -112,17 +111,17 @@ description boolean TRUE to include descriptor in returned dataSet.}
 }}
 \subsection{Return Value}{List of data indexed by variable name given in tables argument keys.}}
 
-\item{\code{previewData(tableMeta)}}{TODO
+\item{\code{previewData(tableMeta)}}{Offers a limited view of sample data
 \subsection{Parameters}{\itemize{
-\item{\code{tableMeta} TODO}
+\item{\code{tableMeta} The table object returned from SAPI}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{reactive construct.  updated DOM is stored in session$output}}
 
-\item{\code{problemTablesUI(problemTables)}}{TODO
+\item{\code{problemTablesUI(problemTables)}}{Creates and returns a UI for the user to reduce the amount of data being loaded to 'hopefully' under the memory limit
 \subsection{Parameters}{\itemize{
-\item{\code{problemTables} TODO}
+\item{\code{problemTables} A list of reducible tables that the UI will display as tabbed editors}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{A tabset panel with one tab per reducible table}}
 
 \item{\code{processSection(section, level, customElements)}}{Internal method that returns HTML content for the given section node.
 \subsection{Parameters}{\itemize{
@@ -135,11 +134,12 @@ description boolean TRUE to include descriptor in returned dataSet.}
 \item{\code{saveDataFormUI(dataToSave)}}{Get the UI elements for the data saving form
 \subsection{Return Value}{List of html elements that make up the form.}}
 
-\item{\code{saveResultUI(dataToSave)}}{TODO
+\item{\code{saveResultUI(dataToSave)}}{This method attempts to save the data.frame given by dataToSave, 
+ and returns a UI element which alerts to the success or failure of the operation
 \subsection{Parameters}{\itemize{
-\item{\code{dataToSave} TODO}
+\item{\code{dataToSave} the name of the data.frame that will be saved to SAPI}
 }}
-\subsection{Return Value}{TODO}}
+\subsection{Return Value}{The success or failure alert dom element}}
 
 \item{\code{setMemoryUsage(tableMeta)}}{TODO
 \subsection{Parameters}{\itemize{

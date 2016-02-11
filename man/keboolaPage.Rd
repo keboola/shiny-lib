@@ -9,7 +9,7 @@ keboolaPage(page, appTitle = "Default")
 \arguments{
 \item{appTitle}{Application title}
 
-\item{bootstrapPage}{Bootstrape page element}
+\item{bootstrapPage}{bootstrapePage element}
 }
 \description{
 Page Template for Keboola Shiny Apps
