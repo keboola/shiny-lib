@@ -79,13 +79,13 @@ function should return a single HTML element. Pass NULL to ignore custom element
 \item{\code{getDescriptor()}}{Get results descriptor from SAPI
 \subsection{Return Value}{Nested list of elements.}}
 
-\item{\code{getRecipeTables(options)}}{TODO
+\item{\code{getRecipeTables(options)}}{Fetch all tables that are listed in the recipeExecutions table of the recipe output bucket
 \subsection{Parameters}{\itemize{
 \item{\code{options} List of options to pass on to the loadTables method.}
 }}
 \subsection{Return Value}{List of tables. each element has required name, and optional reducible.}}
 
-\item{\code{initialize(sapiClient, appConfig, dbConnection, maxMemory = 5e+08,
+\item{\code{initialize(sapiClient, appConfig, dbConnection, maxMemory = 1e+09,
   session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
 \item{\code{sapiClient} Storage API client.}
@@ -104,7 +104,8 @@ function should return a single HTML element. Pass NULL to ignore custom element
 
 \item{\code{loadTables(tables, options = list(cleanData = FALSE, description = FALSE))}}{Load tables from SAPI.
 \subsection{Parameters}{\itemize{
-\item{\code{tables} List of tables key as R variable, value as table name (without bucket).}
+\item{\code{tables} List of tables key as R variable, value as table name (without bucket). 
+                      Also accepts 'all' To load all tables in a bucket}
 \item{\code{options} List with items:
 cleanData boolean TRUE to compute datatypes of cleanData table
 description boolean TRUE to include descriptor in returned dataSet.}

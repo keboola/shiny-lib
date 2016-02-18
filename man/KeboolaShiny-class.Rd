@@ -93,7 +93,7 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 
 \item{\code{startup(options = list(appTitle = "", tables = list(), cleanData = FALSE,
   dataToSave = NULL, configCallback = NULL, description = FALSE, customElements
-  = NULL))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
+  = NULL, inputList = NULL))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
 \subsection{Parameters}{\itemize{
 \item{\code{options} List with items:
 appTitle - the title of the application

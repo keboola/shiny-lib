@@ -60,3 +60,6 @@
 .hidden{
     display:none;
 }
+.modal-backdrop{
+    z-index:900;
+}

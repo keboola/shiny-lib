@@ -1,7 +1,6 @@
 #' Helper Library for Keboola Shiny Applications
 #' 
-#' @import methods
-#' @import shiny
+#' @import methods lubridate shiny
 #' @import keboola.sapi.r.client
 #' @import keboola.provisioning.r.client
 #' @import keboola.redshift.r.client
@@ -307,6 +306,20 @@ KeboolaShiny <- setRefClass(
                     description = FALSE
                 )
             }
+            if (tables == "all") {
+                # grab the name of each table object
+                tableNames <- lapply(
+                    .self$client$listTables(bucket = .self$bucket), # get list of all table objects from bucket
+                    function(t) { t$name } # return the name of the table
+                )
+                tables <- list()
+                for (tableName in tableNames) {
+                    tables[[tableName]] <- list(name=tableName)
+                }
+                print("ALL TABLES")
+                print(tables)
+                
+            }
             # check the sizes of the tables in case any are too big
             # checkTables will return a list of tables that are "too big" to load as is
             problemTables <- .self$kdat$checkTables(tables)
@@ -336,6 +349,8 @@ KeboolaShiny <- setRefClass(
             \\item{\\code{options} initial startup options}
             }}
             \\subsection{Return Value}{void}"
+            
+            print(options)
             session$sendCustomMessage(
                 type = "updateProgress",
                 message = list(id="finalising", text="Just a couple more things...", value="In Progress", valueClass="text-primary")
@@ -355,7 +370,7 @@ KeboolaShiny <- setRefClass(
                 kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
             }
             
-            if (options$description == TRUE) {
+            if ("description" %in% names(options) && options$description == TRUE) {
                 print("finished detour, get description")
                 kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
                 session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
@@ -363,16 +378,44 @@ KeboolaShiny <- setRefClass(
             
             # if the input config option (the callback function) is given,
             # we need to populate the session output object with the UI elements for the modal.
-            if (!(is.null(options$configCallback))) {
+            print("inputlist start")
+            print(paste("inputList is size", length(options$inputList)))
+            if (("configCallback" %in% names(options) && !is.null(options$configCallback)) || length(options$inputList) > 0) {
+                if (length(options$inputList) > 0) {
+                    .self$kfig$registerInputs(options$inputList)
+                }
                 print("init configs")
                 session$output$kb_settingsModalButton <- renderUI({.self$kfig$settingsModalButton()})
                 session$output$kb_saveConfigUI <- renderUI({.self$kfig$saveConfigUI()})
                 session$output$kb_saveConfigResultUI <- renderUI({.self$kfig$saveConfigResultUI()})
-                session$output$kb_loadConfigResultUI <- renderUI({.self$kfig$loadConfigResultUI(options$configCallback)})
                 session$output$kb_configSelectorUI <- renderUI({.self$kfig$configSelectorUI()})
                 session$output$kb_deleteConfigResultUI <- renderUI({.self$kfig$deleteConfigResultUI()})
+                session$output$kb_loadConfigResultUI <- renderUI({
+                    if ("configCallback" %in% names(options) && !is.null(options$configCallback)) {
+                        print(paste("found config callbak:", options$configCallback))
+                        .self$kfig$loadConfigResultUI(options$configCallback)    
+                    } else if (length(.self$kfig$registeredInputs) > 0) {
+                        print("using default configCallback")
+                        .self$kfig$loadConfigResultUI()    
+                    }
+                    
+                })
             }
-            
+            if ("forkButtonRef" %in% names(options)) {
+                session$output$kb_forkButton <- renderUI({
+                    tagList(
+                        a(
+                            class="github-button", 
+                            href=options$forkButtonRef, 
+                            `data-icon`="octicon-repo-forked", 
+                            `data-style`="mega", 
+                            `aria-label`="Fork keboola/application-sample on GitHub",
+                            "Fork"
+                        ),
+                        shiny::tags$script(src="https://buttons.github.io/buttons.js", id="github-bjs")
+                    )
+                })
+            }
             session$sendCustomMessage(
                 type = "updateProgress",
                 message = list(id="finalising", text="Just a couple more things...", value="Completed", valueClass="text-success"))
@@ -390,7 +433,9 @@ KeboolaShiny <- setRefClass(
                 dataToSave = NULL,      # name of the reactive method that produces filtered data to save back to sapi
                 configCallback = NULL,  # callback function which sets inputs when input configuration chosen
                 description = FALSE,    # get the descriptor?
-                customElements = NULL   # function to process custom descriptor elements           
+                customElements = NULL,   # function to process custom descriptor elements           
+                inputList = NULL,        # list of app inputs to be registered for config saving/loading
+                forkButtonRef = NULL    # link href to use if fork button to be included
             )
         ){
             "This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
@@ -446,9 +491,9 @@ KeboolaShiny <- setRefClass(
                 
                 if (!is.null(options$tables) && options$tables == "recipeTables") {
                     options$tables <- .self$kdat$getRecipeTables(options)
-                }
+                } 
                 
-                if (is.null(options$tables)) {
+                if (is.null(options$tables) || (class(options$tables) == "list" && length(options$tables) == 0)) {
                     # Finish the startup process
                     print("No tables given to load")
                     concludeStartup(options)
@@ -478,6 +523,131 @@ KeboolaShiny <- setRefClass(
                 }    
             } 
             ret       
-        }        
+        },
+        
+        generateDynamicUIs = function(data, strictTypes = FALSE) {
+            lapply(.self$kfig$registeredInputs, function(elem){
+                print(elem$type)
+                if (length(grep("^dynamic", elem$type)) > 0) {
+                    print("grepped ok")
+                    elemUIid <- paste0(elem$id,"UI")
+                    print(paste("GETTING UI for", elemUIid))
+                    session$output[[paste0(elem$id,"UI")]] <- renderUI({ .self$getDynamicElementUI(data, elem$id, elem$type )})    
+                }
+            })  
+        },
+        
+        applyDynamicFilter = function(data, inputId, type) {
+            print(paste("applying filter ", inputId, "type:", type))
+            if (length(session$input[[inputId]]) > 0) {
+                print(paste("something to do", length(session$input[[inputId]])))
+                for (i in 1:length(session$input[[inputId]])) {
+                    filter <- session$input[[inputId]][i]
+                    if (!is.null(session$input[[filter]])) {
+                        data <- .self$applyDataFilter(data, filter, type)    
+                    }
+                }
+            }
+            data
+        },
+        
+        getDynamicElementUI = function(data, inputId, type) {
+            if (length(session$input[[inputId]]) > 0) {
+                
+                # this function creates a list of inputs depending on the type with name equal to the selected column
+                # Note, we aren't capturing this in a variable 
+                # and there are no further statements so this is our return value
+                lapply(seq_along(session$input[[inputId]]), function(x) {
+                    elem <- session$input[[inputId]][x]
+                    # return filter element depending on type
+                    switch(type,
+                           "dynamicRanges" = dynamicRangeFilter(data, elem),
+                           "dynamicDateRanges" = dynamicDateRangeFilter(data, elem),
+                           "dynamicFactors" = dynamicFactorFilter(data, elem)
+                           )
+                })
+            } 
+        },
+        
+        dynamicRangeFilter = function(data, elem) {
+            config <- .self$kfig$selectedConfig()
+            # attempt to cast the column as numeric
+            colData <- suppressWarnings(as.numeric(data[,elem]))
+            # get min/max values for the slider
+            minval <- min(colData, na.rm=TRUE)
+            maxval <- max(colData, na.rm=TRUE)
+            
+            if (!is.null(session$input[[elem]])) {
+                # if the session already has values for this element, use them
+                value <- c(session$input[[elem]][1],session$input[[elem]][2])
+            } else if (elem %in% names(config)) {
+                # if the loaded config has values for this element, use them
+                value <- c(config[[elem]][1], config[[elem]][2])
+            } else {
+                # use the min and max as default selected values
+                value <- c(minval,maxval)
+            }
+            sliderInput(elem, elem, min=minval, max=maxval, value=value)
+        },
+        
+        dynamicDateRangeFilter = function(data, elem) {
+            config <- .self$kfig$selectedConfig()
+            coldata <- as.Date(data[,elem])
+            min <- min(coldata, na.rm=TRUE)
+            max <- max(coldata, na.rm=TRUE)
+            if (!is.null(session$input[[elem]])) {
+                start <- session$input[[elem]][1]
+                end <- session$input[[elem]][2]
+            } else if (elem %in% names(config)) {
+                start <- config[[elem]][1]
+                end <- config[[elem]][2]
+            } else {
+                start <- min
+                end <- max
+            }
+            dateRangeInput(elem, elem, min=min, max=max, start=start, end=end)    
+        },
+        
+        dynamicFactorFilter = function(data, elem) {
+            config <- .self$kfig$selectedConfig()
+            choices <- levels(as.factor(data[,elem]))
+            if (!is.null(session$input[[elem]])) {
+                selected <- session$input[[elem]]
+            } else if (elem %in% names(config)) {
+                selected <- config[[elem]]
+            } else {
+                selected <- c()
+            }
+            selectInput(elem, elem, choices=choices, selected=selected, multiple=TRUE)  
+        },
+        
+        applyDataFilter = function(data, inputId, type) {
+            output <- 
+                switch(type,
+                   "dynamicRanges"= data[
+                       which(
+                            data[,inputId] >= session$input[[inputId]][1] &
+                            data[,inputId] <= session$input[[inputId]][2]
+                       ), 
+                       # leaving the second argument empty like this means all columns will be selected
+                    ],
+                   "dynamicDateRanges" = {
+                       print(paste("inputID", inputId))
+                       print(paste("start:", session$input[[inputId]][1], "end:", session$input[[inputId]][2]))
+                       dateInterval <- interval(session$input[[inputId]][1],session$input[[inputId]][2]) 
+                       
+                       data[which(
+                           as.Date(data[,inputId]) %within% dateInterval
+                            ), ]
+                   },
+                   "dynamicFactors" = data[
+                       which(
+                           data[,inputId] %in% session$input[[inputId]]
+                       ), ]  
+                )
+            print("filter applied")
+            print(head(output))
+            output
+        }  
     )
 )

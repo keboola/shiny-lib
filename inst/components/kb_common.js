@@ -39,3 +39,4 @@ Shiny.addCustomMessageHandler(
         $("#" + message.buttonId).html(message.text)
     }
 );
+

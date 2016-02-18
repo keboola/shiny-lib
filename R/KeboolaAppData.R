@@ -33,7 +33,7 @@ KeboolaAppData <- setRefClass(
         allLoaded = 'logical'
     ),
     methods = list(
-        initialize = function(sapiClient, appConfig, dbConnection, maxMemory = 500000000, session = getDefaultReactiveDomain()) {
+        initialize = function(sapiClient, appConfig, dbConnection, maxMemory = 1000000000, session = getDefaultReactiveDomain()) {
             "Constructor.
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{sapiClient} Storage API client.}
@@ -102,7 +102,7 @@ KeboolaAppData <- setRefClass(
         },
         
         getRecipeTables = function(options) {
-            "TODO
+            "Fetch all tables that are listed in the recipeExecutions table of the recipe output bucket
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{options} List of options to pass on to the loadTables method.}
             }}
@@ -124,27 +124,28 @@ KeboolaAppData <- setRefClass(
         loadTables = function(tables, options = list(cleanData = FALSE, description = FALSE)) {
             "Load tables from SAPI.
             \\subsection{Parameters}{\\itemize{
-            \\item{\\code{tables} List of tables key as R variable, value as table name (without bucket).}
+            \\item{\\code{tables} List of tables key as R variable, value as table name (without bucket). 
+                                  Also accepts 'all' To load all tables in a bucket}
             \\item{\\code{options} List with items:
             cleanData boolean TRUE to compute datatypes of cleanData table
             description boolean TRUE to include descriptor in returned dataSet.}
             }}
             \\subsection{Return Value}{List of data indexed by variable name given in tables argument keys.}"
-            print(tables)
             tryCatch({
+                
                 for (name in names(tables)) {
                     print(paste("loading table", name))
                     loadTable(name,tables[[name]]$name)
                     print(paste("loaded table", name))
                 }
                 # Apply data type setting if the cleandata columns are present and the option is set
-                if (options$cleanData && c("cleanTable", "columnTypes") %in% names(tables)) {
+                if (!is.null(options$cleanData) && c("cleanTable", "columnTypes") %in% names(tables)) {
                     sourceData$columnTypes <<- .self$sourceData$columnTypes[,!names(.self$sourceData$columnTypes) %in% c("run_id")]
                     sourceData$cleanData <<- .self$getCleanData(.self$sourceData$columnTypes, .self$sourceData$cleanTable)
                 }
                 
                 # Retrieve descriptor if option is set
-                if (options$description) {
+                if (!is.null(options$description)) {
                     sourceData$descriptor <<- .self$getDescriptor()
                 }  
                 
@@ -173,7 +174,10 @@ KeboolaAppData <- setRefClass(
                 }
                 # check the table size
                 print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name, table))
-                memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)
+                print(tableMeta$dataSizeBytes)
+                if(!is.null(tableMeta$dataSizeBytes)) {
+                    memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)    
+                }
                 print(paste("POST mem usage at",.self$memoryUsage, "table",tableMeta$name))
                 tableMetaList[[tables[[table]]$name]] <- tableMeta
             }

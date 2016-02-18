@@ -18,9 +18,11 @@ KeboolaAppConfig <- setRefClass(
         lastDeleteConfigValue = 'numeric',
         lastConfirmDeleteValue = 'numeric',
         lastConfirmCancelValue = 'numeric',
+        registeredInputs = 'list',
         clearModal = 'logical',
         component = 'character',
-        configId = 'character'
+        configId = 'character',
+        validInputTypes = 'character'
     ),
     methods = list(
         initialize = function(sapiClient, component, configId, session = getDefaultReactiveDomain()) {
@@ -48,6 +50,10 @@ KeboolaAppConfig <- setRefClass(
             client <<- sapiClient
             component <<- component
             configId <<- configId
+            validInputTypes <<- c("text","numeric","date","select","slider",
+                                  "dateRange","checkbox","checkboxGroup","radioButtons",
+                                  "dynamicRanges","dynamicDateRanges","dynamicFactors")
+            registeredInputs <<- list()
         },
         
         configs = function() {
@@ -268,7 +274,7 @@ KeboolaAppConfig <- setRefClass(
             return(ret) 
         },
         
-        loadConfigResultUI = function(callback) {
+        loadConfigResultUI = function(callback = .self$defaultConfigCallback) {
             "Returns DOM element depending on the success/failure of the config load
             \\subsection{Parameters}{\\itemize{
             \\item{\\code{callback} The method to be executed with the loaded config.  
@@ -287,10 +293,12 @@ KeboolaAppConfig <- setRefClass(
             if (!is.na(input$kb_loadConfig) && 
                     input$kb_loadConfig > 0 && 
                     input$kb_loadConfig > .self$lastLoadConfigValue && 
-                    #input$kb_config != "None" && 
+                    input$kb_config != "None" && 
                     !.self$clearModal) {
                 tryCatch({
+                    print("getting selected config")
                     config <- .self$selectedConfig()
+                    print(config)
                     callback(config)
                     print("config callback executed")
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
@@ -342,6 +350,85 @@ KeboolaAppConfig <- setRefClass(
                 }    
             })
             ret
+        },
+        
+        defaultConfigCallback = function(config) {
+            "This method is called when an input configuration is loaded
+            \\subsection{Return Value}{void}"
+            
+            print("in default config callback boyyyyy")
+            print(config)
+            print("was that a config?")
+            if (length(.self$registeredInputs) == 0) {
+                stop("No inputs were registered so I have nothing to do.")
+            }
+            print(paste("there are",length(.self$registeredInputs),"inputs"))
+            for (i in 1:length(.self$registeredInputs)) {
+                input <- .self$registeredInputs[[i]]
+                if (input$id %in% names(config)) {
+                    print(paste("going to fix em up for", input$id))
+                    switch(input$type,
+                           "select" = {
+                               print(paste(input$id, "has type", input$type))
+                               print(paste("should load", input$id,"as", config[[input$id]]))
+                               updateSelectInput(session,input$id, selected=config[[input$id]])
+                               },
+                           "text" = updateTextInput(session, input$id, value=config[[input$id]]),
+                           "slider" = updateSliderInput(session, input$id, value=c(config[[input$id]][1],config[[input$id]][2])),
+                           "date" = updateDateInput(session, input$id, value=config[[input$id]]),
+                           "dateRange" = updateDateRangeInput(session, input$id, start=config[[input$id]][1], end=config[[input$id]][2]),
+                           "checkbox" = updateCheckboxInput(session, input$id, value=config[[input$id]]),
+                           "checkboxGroup" = updateCheckboxGroupInput(session, input$id, selected=config[[input$id]]),
+                           "numeric" = updateNumericInput(session, input$id, value=config[[input$id]]),
+                           "radioButtons" = updateRadioButtons(session, input$id, selected=config[[input$id]]),
+                           "dynamicRanges" = {
+                               updateSelectInput(session, input$id, selected = config[[input$id]])
+                               for (element in config[[input$id]]) {
+                                   updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))
+                               }
+                           },
+                           "dynamicDateRanges" = {
+                               updateSelectInput(session, input$id, selected=config[[input$id]])
+                               for (element in config[[input$id]]) {
+                                   updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
+                               }
+                           },
+                           "dynamicFactors" = {
+                               updateSelectInput(session, input$id, selected=config[[input$id]])
+                               for (element in config[[input$id]]) {
+                                   updateSelectInput(session, element, selected=config[[input$id]])
+                               }
+                           },
+                           stop(paste("Error loading configuration. Unknown input type given:", input$type, ".  Known types are: 'select', 'text', 'slider', and 'daterange'"))
+                    )    
+                }
+            }
+        },
+        
+        registerInputs = function(inputList) {
+            print(inputList)
+            validateInput <- function(input) {
+                print(paste("Registering input", input))
+                
+                if (!class(input) == "list" 
+                    | !("id" %in% names(input))
+                    | !("type" %in% names(input))
+                    | !(input$type %in% .self$validInputTypes)
+                ) {
+                    stop(paste(
+                        "The argument must be a list with members 'id' and 'type' and type must be one of: ", 
+                        paste(validInputs, collapse=", ")
+                    ))
+                }    
+            }
+            
+            lapply(inputList, function(input) {
+                validateInput(input)
+                .self$registeredInputs[[length(.self$registeredInputs) + 1]] <- input
+            })
+            
+            print("Inputs are valid and registered")
         }
+        
     )
 )

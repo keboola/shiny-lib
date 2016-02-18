@@ -30,6 +30,9 @@ This is the configuration component library for managing app configurations
 \item{\code{configSettingsUI()}}{The main UI modal form
 \subsection{Return Value}{The config settings modal form}}
 
+\item{\code{defaultConfigCallback(config)}}{This method is called when an input configuration is loaded
+\subsection{Return Value}{void}}
+
 \item{\code{deleteConfig(rowId)}}{Delete the configuration
 \subsection{Parameters}{\itemize{
 \item{\code{rowId} id of the configuration row}

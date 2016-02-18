@@ -12,6 +12,7 @@ Depends:
     keboola.redshift.r.client,
     keboola.provisioning.r.client,
     jsonlite,
+    lubridate,
     DT,
     methods
 License: MIT + file LICENSE
