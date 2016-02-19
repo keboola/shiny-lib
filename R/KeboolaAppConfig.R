@@ -50,7 +50,7 @@ KeboolaAppConfig <- setRefClass(
             client <<- sapiClient
             component <<- component
             configId <<- configId
-            validInputTypes <<- c("text","numeric","date","select","slider",
+            validInputTypes <<- c("text","numeric","date","select","slider","actionButton",
                                   "dateRange","checkbox","checkboxGroup","radioButtons",
                                   "dynamicRanges","dynamicDateRanges","dynamicFactors")
             registeredInputs <<- list()
@@ -258,11 +258,9 @@ KeboolaAppConfig <- setRefClass(
                 lastSaveConfigValue <<- as.numeric(input$kb_saveConfigForReal)
                 if (nchar(input$kb_configComment) > 0) {
                     tryCatch({
-                        print("saving config")
                         .self$saveConfig()
-                        print("config saved")
                         updateSelectInput(session,"kb_config", choices=c("None",configChoices()()))
-                        ret <- list(ret,list(div(class = 'kfig-alert alert alert-success', "Configuration successfully saved.")))
+                        ret <- list(ret,list(div(class = 'kfig-alert alert alert-success', paste("Configuration successfully saved."))))
                     }, error = function(e) {
                         write(paste("There was an error saving the config", e), stderr())
                         ret <- list(ret,list(div(class = 'kfig-alert alert alert-danger', paste0("Error saving configuration: ", e))))
@@ -296,11 +294,9 @@ KeboolaAppConfig <- setRefClass(
                     input$kb_config != "None" && 
                     !.self$clearModal) {
                 tryCatch({
-                    print("getting selected config")
                     config <- .self$selectedConfig()
-                    print(config)
                     callback(config)
-                    print("config callback executed")
+                    print("Config callback executed")
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
                 }, error = function(e) {
                     ret <- list(ret,list(div(class = 'alert alert-danger', paste0("Error loading configuration: ", e))))
@@ -352,64 +348,71 @@ KeboolaAppConfig <- setRefClass(
             ret
         },
         
+        updateInputElement = function(input) {
+            print(paste("updating input element", input$id, "with value", config[[input$id]]))
+            switch(input$type,
+                   "select" = updateSelectInput(session,input$id, selected=config[[input$id]]),
+                   "text" = updateTextInput(session, input$id, value=config[[input$id]]),
+                   "slider" = updateSliderInput(session, input$id, value=c(config[[input$id]][1],config[[input$id]][2])),
+                   "date" = updateDateInput(session, input$id, value=config[[input$id]]),
+                   "dateRange" = updateDateRangeInput(session, input$id, start=config[[input$id]][1], end=config[[input$id]][2]),
+                   "checkbox" = updateCheckboxInput(session, input$id, value=config[[input$id]]),
+                   "checkboxGroup" = updateCheckboxGroupInput(session, input$id, selected=config[[input$id]]),
+                   "numeric" = updateNumericInput(session, input$id, value=config[[input$id]]),
+                   "radioButtons" = updateRadioButtons(session, input$id, selected=config[[input$id]]),
+                   "dynamicRanges" = {
+                       updateSelectInput(session, input$id, selected = config[[input$id]])
+                       for (element in config[[input$id]]) {
+                           updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))
+                       }
+                   },
+                   "dynamicDateRanges" = {
+                       updateSelectInput(session, input$id, selected=config[[input$id]])
+                       for (element in config[[input$id]]) {
+                           updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
+                       }
+                   },
+                   "dynamicFactors" = {
+                       updateSelectInput(session, input$id, selected=config[[input$id]])
+                       for (element in config[[input$id]]) {
+                           updateSelectInput(session, element, selected=config[[input$id]])
+                       }
+                   },
+                   stop(paste("Error loading configuration. Unknown input type given:", input$type, ".  Valid types are:", paste(self$validInputTypes,collapse=", ")))
+            )
+        },
+        
         defaultConfigCallback = function(config) {
             "This method is called when an input configuration is loaded
             \\subsection{Return Value}{void}"
-            
-            print("in default config callback boyyyyy")
-            print(config)
-            print("was that a config?")
+         
             if (length(.self$registeredInputs) == 0) {
                 stop("No inputs were registered so I have nothing to do.")
             }
-            print(paste("there are",length(.self$registeredInputs),"inputs"))
+            # take care of elements that have dependents first
+            print("checking for primary items")
+            primaries <- lapply(.self$registeredInputs, function(input) { 
+                print(input)
+                if ("hasDependents" %in% names(input) && input$hasDependents == TRUE) { 
+                    print(paste("input", input$id, "has dependencies")) 
+                    .self$updateInputElement(input)
+                    input 
+                } else {
+                    print(paste("input", input$id, "has NO dependencies")) 
+                } 
+            })
+            print(paste("found primary elements", primaries))
+            
             for (i in 1:length(.self$registeredInputs)) {
                 input <- .self$registeredInputs[[i]]
                 if (input$id %in% names(config)) {
-                    print(paste("going to fix em up for", input$id))
-                    switch(input$type,
-                           "select" = {
-                               print(paste(input$id, "has type", input$type))
-                               print(paste("should load", input$id,"as", config[[input$id]]))
-                               updateSelectInput(session,input$id, selected=config[[input$id]])
-                               },
-                           "text" = updateTextInput(session, input$id, value=config[[input$id]]),
-                           "slider" = updateSliderInput(session, input$id, value=c(config[[input$id]][1],config[[input$id]][2])),
-                           "date" = updateDateInput(session, input$id, value=config[[input$id]]),
-                           "dateRange" = updateDateRangeInput(session, input$id, start=config[[input$id]][1], end=config[[input$id]][2]),
-                           "checkbox" = updateCheckboxInput(session, input$id, value=config[[input$id]]),
-                           "checkboxGroup" = updateCheckboxGroupInput(session, input$id, selected=config[[input$id]]),
-                           "numeric" = updateNumericInput(session, input$id, value=config[[input$id]]),
-                           "radioButtons" = updateRadioButtons(session, input$id, selected=config[[input$id]]),
-                           "dynamicRanges" = {
-                               updateSelectInput(session, input$id, selected = config[[input$id]])
-                               for (element in config[[input$id]]) {
-                                   updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))
-                               }
-                           },
-                           "dynamicDateRanges" = {
-                               updateSelectInput(session, input$id, selected=config[[input$id]])
-                               for (element in config[[input$id]]) {
-                                   updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
-                               }
-                           },
-                           "dynamicFactors" = {
-                               updateSelectInput(session, input$id, selected=config[[input$id]])
-                               for (element in config[[input$id]]) {
-                                   updateSelectInput(session, element, selected=config[[input$id]])
-                               }
-                           },
-                           stop(paste("Error loading configuration. Unknown input type given:", input$type, ".  Known types are: 'select', 'text', 'slider', and 'daterange'"))
-                    )    
+                    .self$updateInputElement(input)    
                 }
             }
         },
         
         registerInputs = function(inputList) {
-            print(inputList)
-            validateInput <- function(input) {
-                print(paste("Registering input", input))
-                
+            validateInput <- function(input) {              
                 if (!class(input) == "list" 
                     | !("id" %in% names(input))
                     | !("type" %in% names(input))

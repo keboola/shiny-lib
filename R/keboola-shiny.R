@@ -529,7 +529,6 @@ KeboolaShiny <- setRefClass(
             lapply(.self$kfig$registeredInputs, function(elem){
                 print(elem$type)
                 if (length(grep("^dynamic", elem$type)) > 0) {
-                    print("grepped ok")
                     elemUIid <- paste0(elem$id,"UI")
                     print(paste("GETTING UI for", elemUIid))
                     session$output[[paste0(elem$id,"UI")]] <- renderUI({ .self$getDynamicElementUI(data, elem$id, elem$type )})    
@@ -564,7 +563,7 @@ KeboolaShiny <- setRefClass(
                            "dynamicRanges" = dynamicRangeFilter(data, elem),
                            "dynamicDateRanges" = dynamicDateRangeFilter(data, elem),
                            "dynamicFactors" = dynamicFactorFilter(data, elem)
-                           )
+                    )
                 })
             } 
         },
@@ -624,13 +623,16 @@ KeboolaShiny <- setRefClass(
         applyDataFilter = function(data, inputId, type) {
             output <- 
                 switch(type,
-                   "dynamicRanges"= data[
-                       which(
-                            data[,inputId] >= session$input[[inputId]][1] &
-                            data[,inputId] <= session$input[[inputId]][2]
-                       ), 
-                       # leaving the second argument empty like this means all columns will be selected
-                    ],
+                   "dynamicRanges"= {
+                       data[,inputId] <- as.numeric(data[,inputId])
+                       data[
+                           which(
+                                data[,inputId] >= as.numeric(session$input[[inputId]][1]) &
+                                data[,inputId] <= as.numeric(session$input[[inputId]][2])
+                           ), 
+                           # leaving the second argument empty like this means all columns will be selected
+                        ]
+                    },
                    "dynamicDateRanges" = {
                        print(paste("inputID", inputId))
                        print(paste("start:", session$input[[inputId]][1], "end:", session$input[[inputId]][2]))
@@ -645,8 +647,8 @@ KeboolaShiny <- setRefClass(
                            data[,inputId] %in% session$input[[inputId]]
                        ), ]  
                 )
-            print("filter applied")
-            print(head(output))
+            print(paste(inputId, "filter applied"))
+            print(paste("output data now has this many rows", nrow(output)))
             output
         }  
     )
