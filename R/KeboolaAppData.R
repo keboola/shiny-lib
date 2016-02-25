@@ -173,18 +173,16 @@ KeboolaAppData <- setRefClass(
                     tableMeta$reducible <- tables[[table]]$reducible    
                 }
                 # check the table size
-                print(paste("PRIOR mem usage at",.self$memoryUsage, "table",tableMeta$name, table))
-                print(tableMeta$dataSizeBytes)
                 if(!is.null(tableMeta$dataSizeBytes)) {
                     memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)    
                 }
-                print(paste("POST mem usage at",.self$memoryUsage, "table",tableMeta$name))
                 tableMetaList[[tables[[table]]$name]] <- tableMeta
             }
             if (.self$memoryUsage > .self$maxMemory) {
                 print(paste("memoryUsage:", .self$memoryUsage, "maxMemory", .self$maxMemory))
                 tableMetaList
             } else {
+                print(paste("Prior to loading data, estimated memory usage is", .self$memoryUsage, " bytes."))
                 NULL
             }
         },

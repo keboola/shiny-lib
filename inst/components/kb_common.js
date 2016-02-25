@@ -1,8 +1,5 @@
-$(function(){
-    console.log("Keboola JS components");
-});
 
-// Handle messages for setting gauge
+// Handle messages for loading screen
 Shiny.addCustomMessageHandler(
     "updateProgress",
     function(message) {

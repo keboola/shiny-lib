@@ -11,7 +11,7 @@ This is the configuration component library for managing app configurations
 \section{Methods}{
 
 \describe{
-\item{\code{clearForm(input)}}{Clear all form elements.  Triggered on form load or exit
+\item{\code{clearForm()}}{Clear all form elements.  Triggered on form load or exit
 \subsection{Parameters}{\itemize{
 \item{\code{input} TODO}
 }}
@@ -30,7 +30,7 @@ This is the configuration component library for managing app configurations
 \item{\code{configSettingsUI()}}{The main UI modal form
 \subsection{Return Value}{The config settings modal form}}
 
-\item{\code{defaultConfigCallback(config)}}{This method is called when an input configuration is loaded
+\item{\code{defaultConfigCallback(config, level = "primary")}}{This method is called when an input configuration is loaded
 \subsection{Return Value}{void}}
 
 \item{\code{deleteConfig(rowId)}}{Delete the configuration
@@ -54,7 +54,7 @@ This is the configuration component library for managing app configurations
 It will be read from command line argument.}
 }}}
 
-\item{\code{loadConfigResultUI(callback)}}{Returns DOM element depending on the success/failure of the config load
+\item{\code{loadConfigResultUI(callback = .self$defaultConfigCallback)}}{Returns DOM element depending on the success/failure of the config load
 \subsection{Parameters}{\itemize{
 \item{\code{callback} The method to be executed with the loaded config.  
         This method will generally be tasked with updating input elements with the values which were stored in the config.}

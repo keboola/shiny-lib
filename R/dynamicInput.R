@@ -7,12 +7,12 @@
 #' @export
 #' @param inputId character identifier of the element
 #' @param label character label 
-dynamicInput <- function(inputId, label) {
+dynamicInput <- function(inputId, label, choices=c(), multiple=TRUE, ...) {
     
     tagList(
         div(id=inputId, class="dynamicInput-container",
             div(class="dynamicInput",
-                shiny::selectInput(inputId, label, choices = c(), multiple = TRUE)
+                shiny::selectInput(inputId, label, choices=c("None"="",choices), multiple=multiple, ...)
             ),
             div(class="dynamicInput-ui-container",
                 uiOutput(paste0(inputId,"UI"))    

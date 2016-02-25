@@ -7,7 +7,7 @@ Dynamic Inputs
 This element is like a multi-select, but for each selection 
 a range element is created for the selected column}
 \usage{
-dynamicInput(inputId, label)
+dynamicInput(inputId, label, choices = c(), multiple = TRUE, ...)
 }
 \arguments{
 \item{inputId}{character identifier of the element}

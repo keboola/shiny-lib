@@ -15,7 +15,7 @@ keboolaModalButton <- function(inputId, label, icon = NULL, title = "", content 
     
     # create the button  
     button <- tags$button(
-        id = "configModalButton",
+        id = "kb_configModalButton",
         type = "button", 
         class = "btn btn-default btn-sm action-button shiny-bound-input", 
         `data-toggle` = "modal", 
