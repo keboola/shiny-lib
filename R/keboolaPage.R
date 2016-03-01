@@ -88,7 +88,8 @@ keboolaPage <- function(page, appTitle="Default") {
             div(style = "display: none",
                 textInput("kb_loggedIn","",value="0"),
                 textInput("kb_loading","",value="0"),
-                textInput("kb_detour","",value="0")
+                textInput("kb_detour","",value="0"),
+                textInput("kb_configLoaded", "", value="0")
             )
         )
     )

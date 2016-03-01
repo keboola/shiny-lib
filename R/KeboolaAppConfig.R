@@ -21,6 +21,7 @@ KeboolaAppConfig <- setRefClass(
         clearModal = 'logical',
         component = 'character',
         configId = 'character',
+        configLoaded = 'numeric',
         validInputTypes = 'character'
     ),
     methods = list(
@@ -45,6 +46,7 @@ KeboolaAppConfig <- setRefClass(
             lastConfirmDeleteValue <<- 0
             lastConfirmCancelValue <<- 0
             
+            configLoaded <<- 0
             clearModal <<- FALSE
             client <<- sapiClient
             component <<- component
@@ -93,7 +95,6 @@ KeboolaAppConfig <- setRefClass(
             })
         },
         
-        #' @exportMethod
         selectedConfig = function() {
             "Uses the configId from the configuration select input to 
              return the currently selected configuration
@@ -285,7 +286,10 @@ KeboolaAppConfig <- setRefClass(
                     input$kb_config != "None" && 
                     !.self$clearModal) {
                 tryCatch({
+                    print("WTF trying to call configCallback")
+                    configLoaded <<- as.numeric(session$input$kb_configLoaded) + 1
                     config <- .self$selectedConfig()
+                    print("trying to call configCallback")
                     res <- callback(config)
                     ret <- list(ret,list(div(class = 'alert alert-success', "Configuration successfully loaded.")))
                 }, error = function(e) {
@@ -355,7 +359,7 @@ KeboolaAppConfig <- setRefClass(
                    "radioButtons" = updateRadioButtons(session, elem$id, selected=newValue),
                    "dynamicRanges" = {
                         updateSelectInput(session, elem$id, selected = newValue)
-                        if (newValue !="") {
+                        if (length(newValue) > 1 || newValue !="") {
                            for (element in newValue) {
                                if (!is.null(session$input[[element]])) {
                                    updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))    
@@ -365,7 +369,7 @@ KeboolaAppConfig <- setRefClass(
                    },
                    "dynamicDateRanges" = {
                         updateSelectInput(session, elem$id, selected=newValue)
-                        if (newValue != "") {
+                        if (length(newValue) > 1 || newValue != "") {
                            for (element in newValue) {
                                updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
                            }
@@ -373,7 +377,7 @@ KeboolaAppConfig <- setRefClass(
                    },
                    "dynamicFactors" = {
                        updateSelectInput(session, elem$id, selected=newValue)
-                       if (newValue != "") {
+                       if (length(newValue) > 1 || newValue != "") {
                            for (element in newValue) {
                                updateSelectInput(session, element, selected=config[[element]])
                            }        
@@ -390,6 +394,8 @@ KeboolaAppConfig <- setRefClass(
             if (length(.self$registeredInputs) == 0) {
                 stop("No inputs were registered so I have nothing to do.")
             }
+            
+            
             for (i in 1:length(.self$registeredInputs)) {
                 elem <- .self$registeredInputs[[i]]
                 if (elem$id %in% names(config)) {
@@ -400,6 +406,7 @@ KeboolaAppConfig <- setRefClass(
                     .self$updateInputElement(elem)
                 }
             }
+            print(paste("DEFAULT ConfigCallback finished: ", .self$configLoaded))
         },
         
         registerInputs = function(inputList) {
@@ -425,6 +432,7 @@ KeboolaAppConfig <- setRefClass(
         
         
         generateDynamicUIs = function(data, strictTypes = FALSE) {
+            print("generateDynamicUIs")
             lapply(.self$registeredInputs, function(elem){
                 if (length(grep("^dynamic", elem$type)) > 0) {
                     elemUIid <- paste0(elem$id,"UI")
@@ -434,9 +442,11 @@ KeboolaAppConfig <- setRefClass(
         },
         
         getDynamicElementUI = function(data, inputId, type) {
-            
+            print(paste("getDynamicElUI for", inputId))
             if (length(session$input[[inputId]]) > 0) {
-                
+                for (i in 1:length(session$input[[inputId]])) {
+                    print(paste(""))
+                }
                 # this function creates a list of inputs depending on the type with name equal to the selected column
                 # Note, we aren't capturing this in a variable 
                 # and there are no further statements so this is our return value
@@ -548,6 +558,7 @@ KeboolaAppConfig <- setRefClass(
             output
         },
         
+        
         applyDynamicFilters = function(data) {
             output <- data
             for (i in 1:length(.self$registeredInputs)) {
@@ -560,11 +571,34 @@ KeboolaAppConfig <- setRefClass(
                         }
                     }
                     if (childElementsExist) {
+                        print(paste("Applying filter", elem$id))
                         output <- .self$applyDynamicFilter(data,elem$id,elem$type)    
                     }
                 }
             }
             output
+        },
+        
+        updatedInterface = function() {
+            config <- .self$selectedConfig()
+            if (is.null(config)) { 
+                print("config is null, nothing to update")
+                return(TRUE) 
+            }
+            allupdated <- TRUE
+            for (elem in names(config)) {
+                print(paste("checking status of", elem))
+                print(paste("what is the config val", config[[elem]]))
+                if (is.null(session$input[[elem]]) || config[[elem]] != session$input[[elem]]) {
+                    print(paste(elem,"not updated"))
+                    allupdated <- FALSE
+                } else {
+                    print(paste(elem,"updated"))
+                }
+            }
+            print(paste("Are we updated?", allupdated))
+            allupdated
+            
         }
     )
 )
