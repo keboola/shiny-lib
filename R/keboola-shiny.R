@@ -397,7 +397,6 @@ KeboolaShiny <- setRefClass(
                         print("using default configCallback")
                         .self$kfig$loadConfigResultUI()    
                     }
-                    
                 })
             }
             if ("forkButtonRef" %in% names(options)) {

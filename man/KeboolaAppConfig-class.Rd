@@ -30,7 +30,7 @@ This is the configuration component library for managing app configurations
 \item{\code{configSettingsUI()}}{The main UI modal form
 \subsection{Return Value}{The config settings modal form}}
 
-\item{\code{defaultConfigCallback(config, level = "primary")}}{This method is called when an input configuration is loaded
+\item{\code{defaultConfigCallback(config)}}{This method is called when an input configuration is loaded
 \subsection{Return Value}{void}}
 
 \item{\code{deleteConfig(rowId)}}{Delete the configuration
@@ -68,9 +68,6 @@ It will be read from command line argument.}
 \item{\code{saveConfigResultUI()}}{Saves the app input configuration
  returns the UI depending on the success of the operation
 \subsection{Return Value}{list(UI elements)}}
-
-\item{\code{saveConfigUI()}}{sets DOM for the save configuration form.  text input and button
-\subsection{Return Value}{DOM}}
 
 \item{\code{selectedConfig()}}{Uses the configId from the configuration select input to 
  return the currently selected configuration

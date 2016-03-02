@@ -346,7 +346,7 @@ KeboolaAppConfig <- setRefClass(
                 newValue <- config[[elem$id]]    
             }
             
-            print(paste("updating input element", elem$id, "with value", paste(newValue, collapse="' ")))
+            #print(paste("updating input element", elem$id, "with value", paste(newValue, collapse="' ")))
             switch(elem$type,
                    "select" = updateSelectInput(session,elem$id, selected=newValue),
                    "text" = updateTextInput(session, elem$id, value=newValue),
@@ -358,30 +358,33 @@ KeboolaAppConfig <- setRefClass(
                    "numeric" = updateNumericInput(session, elem$id, value=newValue),
                    "radioButtons" = updateRadioButtons(session, elem$id, selected=newValue),
                    "dynamicRanges" = {
-                        updateSelectInput(session, elem$id, selected = newValue)
-                        if (length(newValue) > 1 || newValue !="") {
-                           for (element in newValue) {
-                               if (!is.null(session$input[[element]])) {
-                                   updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))    
-                               }
-                           }
-                        }
+                        #updateSelectInput(session, elem$id, selected = newValue)
+                        #if (length(newValue) > 1 || newValue !="") {
+                        #   for (element in newValue) {
+                        #       if (!is.null(session$input[[element]])) {
+                        #           updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))    
+                        #       }
+                        #   }
+                        #}
+                       print("OLD update dynamicRanges")
                    },
                    "dynamicDateRanges" = {
-                        updateSelectInput(session, elem$id, selected=newValue)
-                        if (length(newValue) > 1 || newValue != "") {
-                           for (element in newValue) {
-                               updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
-                           }
-                        }
+                        #updateSelectInput(session, elem$id, selected=newValue)
+                        #if (length(newValue) > 1 || newValue != "") {
+                        #   for (element in newValue) {
+                        #       updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
+                        #   }
+                        #}
+                       print("OLD update dynamicDateRanges")
                    },
                    "dynamicFactors" = {
-                       updateSelectInput(session, elem$id, selected=newValue)
-                       if (length(newValue) > 1 || newValue != "") {
-                           for (element in newValue) {
-                               updateSelectInput(session, element, selected=config[[element]])
-                           }        
-                       }
+                       #updateSelectInput(session, elem$id, selected=newValue)
+                       #if (length(newValue) > 1 || newValue != "") {
+                    #       for (element in newValue) {
+                     #          updateSelectInput(session, element, selected=config[[element]])
+                      #    }        
+                       #}
+                       print("OLD update dynamicFactors")
                    },
                    stop(paste("Error loading configuration. Unknown input type given:", elem$type, ".  Valid types are:", paste(self$validInputTypes,collapse=", ")))
             )
@@ -394,8 +397,6 @@ KeboolaAppConfig <- setRefClass(
             if (length(.self$registeredInputs) == 0) {
                 stop("No inputs were registered so I have nothing to do.")
             }
-            
-            
             for (i in 1:length(.self$registeredInputs)) {
                 elem <- .self$registeredInputs[[i]]
                 if (elem$id %in% names(config)) {
@@ -428,177 +429,6 @@ KeboolaAppConfig <- setRefClass(
                 .self$registeredInputs[[length(.self$registeredInputs) + 1]] <- input
             })
             print("Inputs are valid and registered")
-        },
-        
-        
-        generateDynamicUIs = function(data, strictTypes = FALSE) {
-            print("generateDynamicUIs")
-            lapply(.self$registeredInputs, function(elem){
-                if (length(grep("^dynamic", elem$type)) > 0) {
-                    elemUIid <- paste0(elem$id,"UI")
-                    session$output[[paste0(elem$id,"UI")]] <- renderUI({ .self$getDynamicElementUI(data, elem$id, elem$type )})    
-                }
-            })  
-        },
-        
-        getDynamicElementUI = function(data, inputId, type) {
-            print(paste("getDynamicElUI for", inputId))
-            if (length(session$input[[inputId]]) > 0) {
-                for (i in 1:length(session$input[[inputId]])) {
-                    print(paste(""))
-                }
-                # this function creates a list of inputs depending on the type with name equal to the selected column
-                # Note, we aren't capturing this in a variable 
-                # and there are no further statements so this is our return value
-                lapply(seq_along(session$input[[inputId]]), function(x) {
-                    elem <- session$input[[inputId]][x]
-                    # return filter element depending on type
-                    switch(type,
-                           "dynamicRanges" = dynamicRangeFilter(data, elem),
-                           "dynamicDateRanges" = dynamicDateRangeFilter(data, elem),
-                           "dynamicFactors" = dynamicFactorFilter(data, elem)
-                    )
-                })
-            } 
-        },
-        
-        applyDynamicFilter = function(data, inputId, type) {
-            
-            if (length(session$input[[inputId]]) > 0) {
-                for (i in 1:length(session$input[[inputId]])) {
-                    filter <- session$input[[inputId]][i]
-                    if (!is.null(session$input[[filter]])) {
-                        data <- .self$applyDataFilter(data, filter, type)    
-                    }
-                }
-            }
-            data
-        },
-        
-        
-        
-        dynamicRangeFilter = function(data, elem) {
-            config <- .self$selectedConfig()
-            # attempt to cast the column as numeric
-            colData <- suppressWarnings(as.numeric(data[,elem]))
-            # get min/max values for the slider
-            minval <- min(colData, na.rm=TRUE)
-            maxval <- max(colData, na.rm=TRUE)
-            
-            if (!is.null(session$input[[elem]])) {
-                # if the session already has values for this element, use them
-                value <- c(session$input[[elem]][1],session$input[[elem]][2])
-            } else if (elem %in% names(config)) {
-                # if the loaded config has values for this element, use them
-                value <- c(config[[elem]][1], config[[elem]][2])
-            } else {
-                # use the min and max as default selected values
-                value <- c(minval,maxval)
-            }
-            sliderInput(elem, elem, min=minval, max=maxval, value=value)
-        },
-        
-        dynamicDateRangeFilter = function(data, elem) {
-            config <- .self$selectedConfig()
-            coldata <- as.Date(data[,elem])
-            min <- min(coldata, na.rm=TRUE)
-            max <- max(coldata, na.rm=TRUE)
-            if (!is.null(session$input[[elem]])) {
-                start <- session$input[[elem]][1]
-                end <- session$input[[elem]][2]
-            } else if (elem %in% names(config)) {
-                start <- config[[elem]][1]
-                end <- config[[elem]][2]
-            } else {
-                start <- min
-                end <- max
-            }
-            dateRangeInput(elem, elem, min=min, max=max, start=start, end=end)    
-        },
-        
-        dynamicFactorFilter = function(data, elem) {
-            config <- .self$selectedConfig()
-            choices <- levels(as.factor(data[,elem]))
-            # the order here is important,  if the last thing the user did was load config, it should take precendence.
-            if (!is.null(session$input[[elem]])) {
-                selected <- session$input[[elem]]
-            } else if (elem %in% names(config)) {
-                selected <- config[[elem]]
-            } else {
-                selected <- c()
-            }
-            selectInput(elem, elem, choices=choices, selected=selected, multiple=TRUE)  
-        },
-        
-        applyDataFilter = function(data, inputId, type) {
-            output <- 
-                switch(type,
-                       "dynamicRanges"= {
-                           data[,inputId] <- as.numeric(data[,inputId])
-                           data[
-                               which(
-                                   data[,inputId] >= as.numeric(session$input[[inputId]][1]) &
-                                       data[,inputId] <= as.numeric(session$input[[inputId]][2])
-                               ), 
-                               # leaving the second argument empty like this means all columns will be selected
-                               ]
-                       },
-                       "dynamicDateRanges" = {
-                           dateInterval <- interval(session$input[[inputId]][1],session$input[[inputId]][2]) 
-                           
-                           data[which(
-                               as.Date(data[,inputId]) %within% dateInterval
-                           ), ]
-                       },
-                       "dynamicFactors" = data[
-                           which(
-                               data[,inputId] %in% session$input[[inputId]]
-                           ), ]  
-                )
-            output
-        },
-        
-        
-        applyDynamicFilters = function(data) {
-            output <- data
-            for (i in 1:length(.self$registeredInputs)) {
-                elem <- .self$registeredInputs[[i]]
-                if (length(grep("^dynamic", elem$type)) > 0 && !is.null(session$input[[elem$id]]) && session$input[[elem$id]] != "") {
-                    childElementsExist <- FALSE
-                    for (i in 1:length(session$input[[elem$id]])) {
-                        if (!is.null(session$input[[session$input[[elem$id]][i]]])) {
-                            childElementsExist <- TRUE
-                        }
-                    }
-                    if (childElementsExist) {
-                        print(paste("Applying filter", elem$id))
-                        output <- .self$applyDynamicFilter(data,elem$id,elem$type)    
-                    }
-                }
-            }
-            output
-        },
-        
-        updatedInterface = function() {
-            config <- .self$selectedConfig()
-            if (is.null(config)) { 
-                print("config is null, nothing to update")
-                return(TRUE) 
-            }
-            allupdated <- TRUE
-            for (elem in names(config)) {
-                print(paste("checking status of", elem))
-                print(paste("what is the config val", config[[elem]]))
-                if (is.null(session$input[[elem]]) || config[[elem]] != session$input[[elem]]) {
-                    print(paste(elem,"not updated"))
-                    allupdated <- FALSE
-                } else {
-                    print(paste(elem,"updated"))
-                }
-            }
-            print(paste("Are we updated?", allupdated))
-            allupdated
-            
         }
     )
 )
