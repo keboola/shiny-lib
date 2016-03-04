@@ -11,24 +11,12 @@ This is the configuration component library for managing app configurations
 \section{Methods}{
 
 \describe{
-\item{\code{clearForm()}}{Clear all form elements.  Triggered on form load or exit
-\subsection{Parameters}{\itemize{
-\item{\code{input} TODO}
-}}
-\subsection{Return Value}{TODO}}
-
 \item{\code{configChoices()}}{This returns a list of 'config name -- date created' with key configId
  the returned list is used to populate the options for the config select input
 \subsection{Return Value}{array of configId -> 'configname -- date' }}
 
-\item{\code{configs()}}{reactive wrapper around our config fetcher
+\item{\code{configs()}}{config fetcher
 \subsection{Return Value}{list of app input configurations}}
-
-\item{\code{configSelectorUI()}}{The config select element.
-\subsection{Return Value}{select input with id=kb_config}}
-
-\item{\code{configSettingsUI()}}{The main UI modal form
-\subsection{Return Value}{The config settings modal form}}
 
 \item{\code{defaultConfigCallback(config)}}{This method is called when an input configuration is loaded
 \subsection{Return Value}{void}}
@@ -41,9 +29,6 @@ This is the configuration component library for managing app configurations
 
 \item{\code{deleteConfigResultUI()}}{Actually performs the delete and returns a DOM element indicating operation status
 \subsection{Return Value}{DOM}}
-
-\item{\code{getConfigs()}}{Get app configurations from the Shiny Bundle.
-\subsection{Return Value}{List of app configurations.}}
 
 \item{\code{initialize(sapiClient, component, configId,
   session = getDefaultReactiveDomain())}}{Constructor.
@@ -68,10 +53,6 @@ It will be read from command line argument.}
 \item{\code{saveConfigResultUI()}}{Saves the app input configuration
  returns the UI depending on the success of the operation
 \subsection{Return Value}{list(UI elements)}}
-
-\item{\code{selectedConfig()}}{Uses the configId from the configuration select input to 
- return the currently selected configuration
-\subsection{Return Value}{Currently selected app configuration}}
 
 \item{\code{settingsModalButton()}}{the toolbar button that brings up the configuration settings modal dialog
 \subsection{Return Value}{list(button)}}

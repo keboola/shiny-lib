@@ -63,3 +63,11 @@
 .modal-backdrop{
     z-index:900;
 }
+
+.save-config-container {
+    text-align:right;
+    padding:0 19px 15px 0;
+}
+.save-config-comment, .save-config-button {
+    display:inline-block;
+}

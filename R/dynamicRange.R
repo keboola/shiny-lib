@@ -23,14 +23,16 @@ dynamicRange <- function(input, output, session, data, config) {
         cols <- selectedCols()
         sd <- data()
         for (col in cols) {
-          sd[,col] <- as.numeric(sd[,col])
-          sd <- sd[
+            if (col %in% names(sd)){
+                sd[,col] <- as.numeric(sd[,col])
+                sd <- sd[
                     which(
-                      sd[,col] >= as.numeric(input[[col]][1]) &
-                      sd[,col] <= as.numeric(input[[col]][2])
+                        sd[,col] >= as.numeric(input[[col]][1]) &
+                            sd[,col] <= as.numeric(input[[col]][2])
                     ), 
                     # leaving the second argument empty like this means all columns will be selected
-                  ]
+                    ]    
+            }
         }
         sd
     })
@@ -39,12 +41,9 @@ dynamicRange <- function(input, output, session, data, config) {
     selectedCols <- reactive({
       ns <- session$ns
       cols <- input$dynamicRangeSelect
-      if (!is.null(config())) {
-          print("getting selected cols from config")
-          print(config()[[ns("dynamicRangeSelect")]])
+      if (!is.null(config()) && !is.null(names(config()))) {
           cols <- config()[[ns("dynamicRangeSelect")]]
       }
-      print(input[[ns("dynamicRangeSelect")]])
       cols
     })
     
@@ -58,31 +57,34 @@ dynamicRange <- function(input, output, session, data, config) {
     output$dynamicRangeElementsUI <- renderUI({
         ns <- session$ns
         sd <- data()
-        print("WTF FUCKING config")
+        
         config <- config()
-        if (is.null(config)) { print("config is null") } else { print(names(config)) }
-        print(paste("DREL config",paste(names(config),collapse=" || ")))
+        if (is.null(config)) { print("config is null") } else { print("dynamicRangeELUI: config NOT NULL") }
+        
         lapply(selectedCols(), function(col) {
-          print(paste("rangeelementsUI:", col))
-          # attempt to cast the column as numeric
-          colData <- suppressWarnings(as.numeric(sd[,col]))
-          # get min/max values for the slider
-          minval <- min(colData, na.rm=TRUE)
-          maxval <- max(colData, na.rm=TRUE)
+            print(paste("rangeelementsUI:", col))
+            # make sure that the data we're working with has been updated and contains col
+            if (!(col %in% names(sd))) return(NULL)
+            
+            # attempt to cast the column as numeric
+            colData <- suppressWarnings(as.numeric(sd[,col]))
+            # get min/max values for the slider
+            minval <- min(colData, na.rm=TRUE)
+            maxval <- max(colData, na.rm=TRUE)
           
-          print(paste("namespaced col", ns(col)))
-          
-          if (!is.null(input[[col]])) {
-            # if the session already has values for this element, use them
-            value <- c(input[[col]][1], input[[col]][2])
-          } else if (ns(col) %in% names(config)) {
-            # if the loaded config has values for this element, use them
-            value <- c(config[[ns(col)]][1], config[[ns(col)]][2])
-          } else {
-            # use the min and max as default selected values
-            value <- c(minval,maxval)
-          }
-          sliderInput(ns(col), col, min=minval, max=maxval, value=value)
+            print(paste("namespaced col", ns(col)))
+            
+            if (!is.null(input[[col]])) {
+                # if the session already has values for this element, use them
+                value <- c(input[[col]][1], input[[col]][2])
+            } else if (ns(col) %in% names(config)) {
+                # if the loaded config has values for this element, use them
+                value <- c(config[[ns(col)]][1], config[[ns(col)]][2])
+            } else {
+                # use the min and max as default selected values
+                value <- c(minval,maxval)
+            }
+            sliderInput(ns(col), col, min=minval, max=maxval, value=value)
         })  
     })
     

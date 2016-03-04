@@ -24,11 +24,13 @@ dynamicDateRange <- function(input, output, session, data, config=NULL) {
     sd <- data()
     if (is.null(cols)) { return(sd) }
     for (col in cols) {
-      dateInterval <- interval(input[[col]][1],input[[col]][2]) 
-      
-      sd[which(
-        as.Date(sd[,col]) %within% dateInterval
-      ), ]
+        if (col %in% names(sd)) {
+            dateInterval <- interval(input[[col]][1],input[[col]][2]) 
+            
+            sd[which(
+                as.Date(sd[,col]) %within% dateInterval
+            ), ]    
+        }
     }
     sd
   })
@@ -37,7 +39,10 @@ dynamicDateRange <- function(input, output, session, data, config=NULL) {
   selectedCols <- reactive({
     ns <- session$ns
     cols <- input$dynamicDateRangeSelect
-    print(input[[ns("dynamicDateRangeSelect")]])
+    if (!is.null(config()) && !is.null(names(config()))) {
+        cols <- config()[[ns("dynamicDateRangeSelect")]]
+    }
+    print(paste("dynamicDateRange: selectedCols:", paste(cols,collapse="#dr#")))
     cols
   })
   
@@ -51,22 +56,26 @@ dynamicDateRange <- function(input, output, session, data, config=NULL) {
   output$dynamicDateRangeElementsUI <- renderUI({
     ns <- session$ns
     sd <- data()
+    
+    config <- config()
+    if (is.null(config)) { print("config is null") } else { print("dynamicDateRangeELUI: config NOT NULL") }
+    
     lapply(selectedCols(), function(col) {
-      # config <- .self$selectedConfig()
-      coldata <- as.Date(sd[,col])
-      min <- min(coldata, na.rm=TRUE)
-      max <- max(coldata, na.rm=TRUE)
-      if (!is.null(input[[col]])) {
-        start <- input[[col]][1]
-        end <- input[[col]][2]
-      } else if (col %in% names(config)) {
-        start <- config[[col]][1]
-        end <- config[[col]][2]
-      } else {
-        start <- min
-        end <- max
-      }
-      dateRangeInput(ns(col), col, min=min, max=max, start=start, end=end)
+        if (!(col %in% names(sd))) return(NULL)
+        coldata <- as.Date(sd[,col])
+        min <- min(coldata, na.rm=TRUE)
+        max <- max(coldata, na.rm=TRUE)
+        if (!is.null(input[[col]])) {
+            start <- input[[col]][1]
+            end <- input[[col]][2]
+        } else if (ns(col) %in% names(config)) {
+            start <- config[[ns(col)]][1]
+            end <- config[[ns(col)]][2]
+        } else {
+            start <- min
+            end <- max
+        }
+        dateRangeInput(ns(col), col, min=min, max=max, start=start, end=end)
     })  
   })
   

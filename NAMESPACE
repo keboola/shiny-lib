@@ -3,6 +3,8 @@
 export(KeboolaAppConfig)
 export(KeboolaAppData)
 export(KeboolaShiny)
+export(appConfig)
+export(appConfigInput)
 export(dynamicDateRange)
 export(dynamicDateRangeInput)
 export(dynamicFactor)
