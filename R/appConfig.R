@@ -18,7 +18,10 @@ appConfigInput <- function(id) {
             uiOutput(ns("loadConfigResultUI")),
             uiOutput(ns("deleteConfigResultUI")),
             uiOutput(ns("selectConfigUI"))
-        )    
+        ),
+        div(class="kb-hidden",
+            textInput(ns("settingsMode"),"")
+            )
     )
 }
 
@@ -29,6 +32,7 @@ appConfig <- function(input, output, session, kfig) {
         ns <- session$ns
         cfg <- input$loadConfig
         print(paste("LOAD config btn push:", cfg))
+        print(paste("KB SETTINGS MODE ldcfigpush", input$settingsMode))
         isolate({
             selectedConfigId <- input$config
             print(paste("selected config is", selectedConfigId))
@@ -48,11 +52,8 @@ appConfig <- function(input, output, session, kfig) {
             # the config object is full of nulls for non-matches, 
             # so we remove them and return the matching elementt
             out <- Filter(Negate(is.null),config)[[1]]$config     
-            print("got the configuration")
-            print(out)
-            print("clearing form?")
-            #clearForm()
-            #call the defaultConfigCallback
+            
+            # 
             kfig$defaultConfigCallback(out)
             out
         })
@@ -60,6 +61,8 @@ appConfig <- function(input, output, session, kfig) {
     
     output$selectConfigUI <- renderUI({
         ns <- session$ns
+        print(paste("KB SETTINGS MODE", input$settingsMode))
+        print(paste("KB SETTINGS MODE", input[[ns("settingsMode")]]))
         tagList(
             selectInput(ns("config"),"Configuration",c("None",kfig$configChoices()())),
             fluidRow(
@@ -111,7 +114,7 @@ appConfig <- function(input, output, session, kfig) {
     # Clear all form elements.  Triggered on form load or exit
     clearForm <- function() {
         
-        print("CLEARING FORM")
+        print("CLEAR FORM START")
         lastSaveConfigValue <<- if (is.null(session$input$kb_saveConfigForReal)) { 0 } else { as.numeric(session$input$kb_saveConfigForReal) }
         lastLoadConfigValue <<- if (is.null(session$input$kb_loadConfig)) { 0 } else { as.numeric(session$input$kb_loadConfig) }
         lastConfirmDeleteValue <<- if (is.null(session$input$kb_confirmDelete)) { 0 } else { as.numeric(session$input$kb_confirmDelete) }
@@ -119,7 +122,7 @@ appConfig <- function(input, output, session, kfig) {
         
         updateSelectInput(session, ns("config"), selected="None")
         updateTextInput(session, ns("configComment"), value="") 
-        print("CLEARED FORM")
+        print("CLEAR FORM END")
     }
     
     return(selectedConfig)

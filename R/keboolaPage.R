@@ -85,11 +85,10 @@ keboolaPage <- function(page, appTitle="Default") {
                 condition = "input.kb_loggedIn == 1 && input.kb_loading == 0",
                 page   
             ),
-            div(style = "display: none",
+            div(class="kb-hidden",
                 textInput("kb_loggedIn","",value="0"),
                 textInput("kb_loading","",value="0"),
-                textInput("kb_detour","",value="0"),
-                textInput("kb_configLoaded", "", value="0")
+                textInput("kb_detour","",value="0")
             )
         )
     )

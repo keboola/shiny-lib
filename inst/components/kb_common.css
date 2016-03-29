@@ -71,3 +71,6 @@
 .save-config-comment, .save-config-button {
     display:inline-block;
 }
+.kb-hidden {
+    display:none;
+}
