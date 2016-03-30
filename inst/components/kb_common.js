@@ -1,17 +1,13 @@
 
 // settings modal exit
 $(document).on('hidden.bs.modal', '#kb_configModal', function (e) {
-   
-   $("#kb-settingsMode").val("0");
-   alert("SETTINGS MODE VAL:" + $("#kb-settingsMode").val());
+    Shiny.onInputChange("kb-settingsMode", 0);
     console.log("end settings mode");
 })
   
 $(document).on('show.bs.modal', '#kb_configModal', function (e) {
-   console.log(e);
-   $("#kb-settingsMode").val("1"); 
-   alert("SETTINGS MODE VAL:" + $("#kb-settingsMode").val());
-    console.log("start settings mode");
+   Shiny.onInputChange("kb-settingsMode", 1);
+   console.log("start settings mode");
 })    
 
 // Handle messages for loading screen
