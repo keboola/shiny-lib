@@ -137,13 +137,19 @@ KeboolaShiny <- setRefClass(
             provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, runId)
             credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- RedshiftDriver$new()
-            db$connect(
-                credentials$hostname, 
-                credentials$db,
-                credentials$user,
-                credentials$password,
-                credentials$schema
-            )    
+            tryCatch({
+                db$connect(
+                    credentials$hostname, 
+                    credentials$db,
+                    credentials$user,
+                    credentials$password,
+                    credentials$schema
+                )    
+            }, error = function(e) {
+                write(paste("Error connecting to DB", e), stderr())
+                stop("There was an error connecting to the database.")
+            })
+                
             write("DB Connection Established", stdout())
             TRUE
         },
@@ -312,12 +318,11 @@ KeboolaShiny <- setRefClass(
                     .self$client$listTables(bucket = .self$bucket), # get list of all table objects from bucket
                     function(t) { t$name } # return the name of the table
                 )
+                print("LAPPLLY on ALL TABLES")
                 tables <- list()
                 for (tableName in tableNames) {
                     tables[[tableName]] <- list(name=tableName)
                 }
-                print("ALL TABLES")
-                print(tables)
             }
             # check the sizes of the tables in case any are too big
             # checkTables will return a list of tables that are "too big" to load as is
