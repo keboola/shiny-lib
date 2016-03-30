@@ -5,10 +5,14 @@
 #' @param bootstrapPage bootstrapePage element
 #' @param appTitle Application title
 keboolaPage <- function(page, appTitle="Default") {
+    
+    # Register the css and js we want to use in our frontend
+    # Directory in source is inst/components
     addResourcePath(
         prefix = 'components',
         directoryPath = system.file('components', package='keboola.shiny.lib'))
     
+    # main page layout
     bootstrapPage(
         DT::datatable(data.frame()),
         # basic application container divs

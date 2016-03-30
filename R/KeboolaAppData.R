@@ -176,6 +176,7 @@ KeboolaAppData <- setRefClass(
                 if(!is.null(tableMeta$dataSizeBytes)) {
                     memoryUsage <<- .self$memoryUsage + as.numeric(tableMeta$dataSizeBytes)    
                 }
+                
                 tableMetaList[[tables[[table]]$name]] <- tableMeta
             }
             if (.self$memoryUsage > .self$maxMemory) {

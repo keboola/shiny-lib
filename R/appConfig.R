@@ -19,6 +19,7 @@ appConfigInput <- function(id) {
             uiOutput(ns("deleteConfigResultUI")),
             uiOutput(ns("selectConfigUI"))
         ),
+        
         div(class="kb-hidden",
             textInput(ns("settingsMode"),"")
             )
@@ -32,10 +33,10 @@ appConfig <- function(input, output, session, kfig) {
         ns <- session$ns
         cfg <- input$loadConfig
         print(paste("LOAD config btn push:", cfg))
-        print(paste("KB SETTINGS MODE ldcfigpush", input$settingsMode))
+        print(paste("KB SETTINGS MODE in selectedConfig", input$settingsMode))
         isolate({
             selectedConfigId <- input$config
-            print(paste("selected config is", selectedConfigId))
+            print(paste("selected config is:::", selectedConfigId))
             if (is.null(selectedConfigId) || selectedConfigId == "None") {
                 print("selected config is null or none")
                 return(NULL)
@@ -53,7 +54,7 @@ appConfig <- function(input, output, session, kfig) {
             # so we remove them and return the matching elementt
             out <- Filter(Negate(is.null),config)[[1]]$config     
             
-            # 
+            # load the config into the app
             kfig$defaultConfigCallback(out)
             out
         })
@@ -61,8 +62,7 @@ appConfig <- function(input, output, session, kfig) {
     
     output$selectConfigUI <- renderUI({
         ns <- session$ns
-        print(paste("KB SETTINGS MODE", input$settingsMode))
-        print(paste("KB SETTINGS MODE", input[[ns("settingsMode")]]))
+        print(paste("KB SETTINGS MODE configUI", input$settingsMode))
         tagList(
             selectInput(ns("config"),"Configuration",c("None",kfig$configChoices()())),
             fluidRow(
@@ -82,7 +82,6 @@ appConfig <- function(input, output, session, kfig) {
         ns <- session$ns
         input$saveConfig
         isolate({
-            
             if (nchar(input$configComment) > 0) {
                 tryCatch({
                     kfig$saveConfig(input$configComment)    
@@ -92,11 +91,53 @@ appConfig <- function(input, output, session, kfig) {
                 }, error = function(e) {
                     div(class = 'kfig-alert alert alert-danger', paste0("Error saving configuration: ", e))
                 })    
-            } else {
-                div(class = 'kfig-alert alert alert-warning', "Please enter a comment.")
-            }    
+            } 
         })
         
+    })
+    
+    # Actually performs the delete and returns a DOM element indicating operation status
+    output$deleteConfigResultUI <- renderUI({
+        ns <- session$ns
+        input$deleteConfig
+        input$confirmDelete
+        input$confirmCancel
+        
+        ret <- list()
+        isolate({
+            input <- session$input
+            sc <- selectedConfig()
+#            if (input$deleteConfig > 0 && input$kb_deleteConfig %% 2 == 1
+#                && (is.null(input$kb_confirmDelete) || input$kb_confirmDelete == .self$lastConfirmDeleteValue) 
+#                && (is.null(input$kb_confirmCancel) || input$kb_confirmCancel == .self$lastConfirmCancelValue) 
+#                && !.self$clearModal) {
+            if (!is.null(sc)) {               
+                choices <- configChoices()()
+                mtch <- match(input$config,unlist(choices))
+                choice <- names(choices)[mtch[1]]
+                ret <- div(
+                            class = 'alert alert-warning', 
+                            paste("Are you sure you want to delete '", choice, "'?",sep=''),
+                            actionButton(ns("confirmDelete"),'Yes'),
+                            actionButton(ns("confirmCancel"),'No')
+                          )
+            } else if (!is.null(input$confirmDelete) && input$confirmDelete > .self$lastConfirmDeleteValue && !.self$clearModal) {
+                print(paste0("Confirmed to delete: ", input$config))
+                lastConfirmDeleteValue <<- as.numeric(input$confirmDelete)
+                tryCatch({
+                    resp <- .self$deleteConfig(input$config)
+                    print(paste("deleted config:", input$config))
+                    updateSelectInput(session,ns("config"), choices=c("None",configChoices()()))
+                    ret <- div(class = 'alert alert-success', "Configuration successfully deleted.")
+                }, error = function(e) {
+                    ret <- div(class = 'alert alert-danger', paste0("Error deleting configuration: ", e))
+                })
+            } else if (!is.null(input$kb_confirmCancel) && input$kb_confirmCancel > .self$lastConfirmCancelValue) {
+                lastConfirmCancelValue <<- as.numeric(input$confirmCancel)
+                # Do nothing
+            }    
+        })
+        ret
     })
     
     output$loadConfigResultUI <- renderUI({
@@ -105,7 +146,12 @@ appConfig <- function(input, output, session, kfig) {
         tryCatch({
             print("pinging selected config")
             sc <- selectedConfig()
-            div(class = 'alert alert-success', paste("Configuration", input$config, "was successfully loaded."))
+            print(paste("selected config is ", sc))
+            if (!is.null(sc)) { 
+                div(class = 'alert alert-success', paste("Configuration", input$config, "was successfully loaded."))    
+            } else {
+                div()
+            }
         }, error = function(e) {
             div(class = 'alert alert-danger', paste0("Error loading configuration: ", e))
         })

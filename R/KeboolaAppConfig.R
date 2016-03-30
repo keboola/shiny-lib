@@ -145,45 +145,6 @@ KeboolaAppConfig <- setRefClass(
             )
         },
         
-        deleteConfigResultUI = function() {
-            "Actually performs the delete and returns a DOM element indicating operation status
-            \\subsection{Return Value}{DOM}"
-            ret <- list()
-            session$input$kb_deleteConfig
-            session$input$kb_confirmDelete
-            session$input$kb_confirmCancel
-            isolate({
-                input <- session$input
-                if (input$kb_deleteConfig > 0 && input$kb_deleteConfig %% 2 == 1
-                    && (is.null(input$kb_confirmDelete) || input$kb_confirmDelete == .self$lastConfirmDeleteValue) 
-                    && (is.null(input$kb_confirmCancel) || input$kb_confirmCancel == .self$lastConfirmCancelValue) 
-                    && !.self$clearModal) {
-                    
-                    choices <- configChoices()()
-                    mtch <- match(input$kb_config,unlist(choices))
-                    choice <- names(choices)[mtch[1]]
-                    ret <- div(class = 'alert alert-warning', paste("Are you sure you want to delete '", choice, "'?",sep=''),
-                               actionButton("kb_confirmDelete",'Yes'),
-                               actionButton("kb_confirmCancel",'No'))
-                } else if (!is.null(input$kb_confirmDelete) && input$kb_confirmDelete > .self$lastConfirmDeleteValue && !.self$clearModal) {
-                    print(paste0("Confirmed to delete: ", input$kb_config))
-                    lastConfirmDeleteValue <<- as.numeric(input$kb_confirmDelete)
-                    tryCatch({
-                        resp <- .self$deleteConfig(input$kb_config)
-                        print(paste("deleted config:", input$kb_config))
-                        updateSelectInput(session,"kb_config", choices=c("None",configChoices()()))
-                        ret <- div(class = 'alert alert-success', "Configuration successfully deleted.")
-                    }, error = function(e) {
-                        ret <- div(class = 'alert alert-danger', paste0("Error deleting configuration: ", e))
-                    })
-                } else if (!is.null(input$kb_confirmCancel) && input$kb_confirmCancel > .self$lastConfirmCancelValue) {
-                    lastConfirmCancelValue <<- as.numeric(input$kb_confirmCancel)
-                    # Do nothing
-                }    
-            })
-            ret
-        },
-        
         updateInputElement = function(elem, config = NULL) {
             if (is.null(config)) {
                 newValue = ""
