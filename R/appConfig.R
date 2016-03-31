@@ -17,6 +17,7 @@ appConfigInput <- function(id) {
         wellPanel(
             uiOutput(ns("loadConfigResultUI")),
             uiOutput(ns("deleteConfigResultUI")),
+            uiOutput(ns("confirmDeleteResultUI")),
             uiOutput(ns("selectConfigUI"))
         ),
         
@@ -63,6 +64,7 @@ appConfig <- function(input, output, session, kfig) {
     output$selectConfigUI <- renderUI({
         ns <- session$ns
         print(paste("KB SETTINGS MODE configUI", input$settingsMode))
+        input$confirmDelete
         tagList(
             selectInput(ns("config"),"Configuration",c("None",kfig$configChoices()())),
             fluidRow(
@@ -82,6 +84,7 @@ appConfig <- function(input, output, session, kfig) {
         ns <- session$ns
         input$saveConfig
         isolate({
+            print("somebody wants to save the state")
             if (nchar(input$configComment) > 0) {
                 tryCatch({
                     kfig$saveConfig(input$configComment)    
@@ -96,48 +99,51 @@ appConfig <- function(input, output, session, kfig) {
         
     })
     
-    # Actually performs the delete and returns a DOM element indicating operation status
     output$deleteConfigResultUI <- renderUI({
         ns <- session$ns
         input$deleteConfig
-        input$confirmDelete
-        input$confirmCancel
-        
-        ret <- list()
         isolate({
-            input <- session$input
-            sc <- selectedConfig()
-#            if (input$deleteConfig > 0 && input$kb_deleteConfig %% 2 == 1
-#                && (is.null(input$kb_confirmDelete) || input$kb_confirmDelete == .self$lastConfirmDeleteValue) 
-#                && (is.null(input$kb_confirmCancel) || input$kb_confirmCancel == .self$lastConfirmCancelValue) 
-#                && !.self$clearModal) {
-            if (!is.null(sc)) {               
-                choices <- configChoices()()
+            if (is.null(input$deleteConfig) || input$deleteConfig < 1) {
+                return(NULL)
+                # div(class = 'alert alert-warning', "No configuration selected, I've nothing to delete.")
+            } else {
+                print("Good, a config is selected, and we can try to delete it, please confirm")
+                choices <- kfig$configChoices()()
                 mtch <- match(input$config,unlist(choices))
                 choice <- names(choices)[mtch[1]]
-                ret <- div(
-                            class = 'alert alert-warning', 
-                            paste("Are you sure you want to delete '", choice, "'?",sep=''),
-                            actionButton(ns("confirmDelete"),'Yes'),
-                            actionButton(ns("confirmCancel"),'No')
-                          )
-            } else if (!is.null(input$confirmDelete) && input$confirmDelete > .self$lastConfirmDeleteValue && !.self$clearModal) {
-                print(paste0("Confirmed to delete: ", input$config))
-                lastConfirmDeleteValue <<- as.numeric(input$confirmDelete)
-                tryCatch({
-                    resp <- .self$deleteConfig(input$config)
-                    print(paste("deleted config:", input$config))
-                    updateSelectInput(session,ns("config"), choices=c("None",configChoices()()))
-                    ret <- div(class = 'alert alert-success', "Configuration successfully deleted.")
-                }, error = function(e) {
-                    ret <- div(class = 'alert alert-danger', paste0("Error deleting configuration: ", e))
-                })
-            } else if (!is.null(input$kb_confirmCancel) && input$kb_confirmCancel > .self$lastConfirmCancelValue) {
-                lastConfirmCancelValue <<- as.numeric(input$confirmCancel)
-                # Do nothing
-            }    
+                # return a confirmation dialog
+                div(
+                    class = 'alert alert-warning', 
+                    paste("Are you sure you want to delete '", choice, "'?",sep=''),
+                    actionButton(ns("confirmDelete"),'Yes'),
+                    actionButton(ns("confirmCancel"),'No')
+                )
+            }
         })
-        ret
+    })
+    
+    output$confirmDeleteResultUI <- renderUI({
+        ns <- session$ns
+        input$confirmDelete
+        input$cancelDelete
+        isolate({
+            print(paste("confirm val", input$confirmDelete, " cancel val", input$cancelDelete))
+            if (!is.null(input$confirmDelete) && input$confirmDelete >= 1) {
+                tryCatch({
+                    resp <- kfig$deleteConfig(input$config)
+                    print(paste("deleted config:", input$config))
+                    print(paste("choices", kfig$configChoices()()))
+                    updateSelectInput(session,ns("config"), choices=c("None",kfig$configChoices()()), selected="None")
+                    # return a success alert
+                    div(class = 'alert alert-success', "Configuration successfully deleted.")
+                }, error = function(e) {
+                    # return an error alert
+                    div(class = 'alert alert-danger', paste0("Error deleting configuration: ", e))
+                })    
+            } else {
+                return(NULL)
+            }
+        })
     })
     
     output$loadConfigResultUI <- renderUI({
@@ -158,18 +164,24 @@ appConfig <- function(input, output, session, kfig) {
     })
     
     # Clear all form elements.  Triggered on form load or exit
-    clearForm <- function() {
+    clearForm <- reactive({
+        ns <- session$ns
+        input$settingsMode
+        isolate({
+            if (!is.null(input$settingsMode) && input$settingsMode == 0) {
+                print("CLEAR FORM START")
+                #lastSaveConfigValue <<- if (is.null(session$input$kb_saveConfigForReal)) { 0 } else { as.numeric(session$input$kb_saveConfigForReal) }
+                #lastLoadConfigValue <<- if (is.null(session$input$kb_loadConfig)) { 0 } else { as.numeric(session$input$kb_loadConfig) }
+                #lastConfirmDeleteValue <<- if (is.null(session$input$kb_confirmDelete)) { 0 } else { as.numeric(session$input$kb_confirmDelete) }
+                #lastConfirmCancelValue <<- if (is.null(session$input$kb_confirmCancel)) { 0 } else { as.numeric(session$input$kb_confirmCancel) }
+
+                updateSelectInput(session, ns("config"), selected="None")
+                updateTextInput(session, ns("configComment"), value="") 
+                print("CLEAR FORM END")        
+            }
+        })
         
-        print("CLEAR FORM START")
-        lastSaveConfigValue <<- if (is.null(session$input$kb_saveConfigForReal)) { 0 } else { as.numeric(session$input$kb_saveConfigForReal) }
-        lastLoadConfigValue <<- if (is.null(session$input$kb_loadConfig)) { 0 } else { as.numeric(session$input$kb_loadConfig) }
-        lastConfirmDeleteValue <<- if (is.null(session$input$kb_confirmDelete)) { 0 } else { as.numeric(session$input$kb_confirmDelete) }
-        lastConfirmCancelValue <<- if (is.null(session$input$kb_confirmCancel)) { 0 } else { as.numeric(session$input$kb_confirmCancel) }
-        
-        updateSelectInput(session, ns("config"), selected="None")
-        updateTextInput(session, ns("configComment"), value="") 
-        print("CLEAR FORM END")
-    }
+    })
     
     return(selectedConfig)
 }
