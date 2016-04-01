@@ -163,35 +163,9 @@ KeboolaAppConfig <- setRefClass(
                    "checkboxGroup" = updateCheckboxGroupInput(session, elem$id, selected=newValue),
                    "numeric" = updateNumericInput(session, elem$id, value=newValue),
                    "radioButtons" = updateRadioButtons(session, elem$id, selected=newValue),
-                   "dynamicRanges" = {
-                        #updateSelectInput(session, elem$id, selected = newValue)
-                        #if (length(newValue) > 1 || newValue !="") {
-                        #   for (element in newValue) {
-                        #       if (!is.null(session$input[[element]])) {
-                        #           updateSliderInput(session, element, value=c(config[[element]][1],config[[element]][2]))    
-                        #       }
-                        #   }
-                        #}
-                       print("OLD update dynamicRanges")
-                   },
-                   "dynamicDateRanges" = {
-                        #updateSelectInput(session, elem$id, selected=newValue)
-                        #if (length(newValue) > 1 || newValue != "") {
-                        #   for (element in newValue) {
-                        #       updateDateRangeInput(session, element, start=config[[element]][1], end=config[[element]][2])
-                        #   }
-                        #}
-                       print("OLD update dynamicDateRanges")
-                   },
-                   "dynamicFactors" = {
-                       #updateSelectInput(session, elem$id, selected=newValue)
-                       #if (length(newValue) > 1 || newValue != "") {
-                    #       for (element in newValue) {
-                     #          updateSelectInput(session, element, selected=config[[element]])
-                      #    }        
-                       #}
-                       print("OLD update dynamicFactors")
-                   },
+                   "dynamicRanges" = { },
+                   "dynamicDateRanges" = { },
+                   "dynamicFactors" = { },
                    stop(paste("Error loading configuration. Unknown input type given:", elem$type, ".  Valid types are:", paste(self$validInputTypes,collapse=", ")))
             )
         },
