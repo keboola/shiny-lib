@@ -1,7 +1,13 @@
 
 #' @export
-dynamicRangeInput <- function(id) {
+dynamicRangeInput <- function(id, useApplyBtn=FALSE, strictTypes=FALSE) {
     ns <- NS(id)
+    applyDiv <- NULL
+    if (useApplyBtn) {
+        applyDiv <- div(class="dynamicInput-apply",
+                        actionButton(ns("applyRangeFilters"), "Go")
+                        )
+    }
     tagList(
         div(id=id, class="dynamicInput-container",
             div(class="dynamicInput",
@@ -9,35 +15,40 @@ dynamicRangeInput <- function(id) {
             ),
             div(class="dynamicInput-ui-container",
                 uiOutput(ns("dynamicRangeElementsUI"))
-            )
+            ),
+            applyDiv
         )
     )
 }
 
 #' @export
-dynamicRange <- function(input, output, session, data, config) {
+dynamicRange <- function(input, output, session, data, config, useApplyBtn=FALSE, strictTypes=FALSE) {
     
     # this will return data with all range filters applied
     filteredData <- reactive({
         ns <- session$ns
-        cols <- selectedCols()
-        sd <- data()
-        for (col in cols) {
-            if (col %in% names(sd)){
-                sd[,col] <- as.numeric(sd[,col])
-                sd <- sd[
-                    which(
-                        sd[,col] >= as.numeric(input[[col]][1]) &
-                            sd[,col] <= as.numeric(input[[col]][2])
-                    ), 
-                    # leaving the second argument empty like this means all columns will be selected
-                    ]    
+        input$applyRangeFilters
+        isolate({
+            cols <- selectedCols()
+            sd <- data()
+            for (col in cols) {
+                if (col %in% names(sd)){
+                    sd[,col] <- as.numeric(sd[,col])
+                    sd <- sd[
+                        which(
+                            sd[,col] >= as.numeric(input[[col]][1]) &
+                                sd[,col] <= as.numeric(input[[col]][2])
+                        ), 
+                        # leaving the second argument empty like this means all columns will be selected
+                        ]    
+                }
             }
-        }
-        sd
+            sd    
+        })
     })
     
-    # Returns the columns selected as range filters.  IE. the selected elements of the primary select input.
+    # Returns the columns selected as range filters.  
+    # IE. the selected elements of the primary select input.
     selectedCols <- reactive({
       ns <- session$ns
       cols <- input$dynamicRangeSelect
@@ -53,7 +64,7 @@ dynamicRange <- function(input, output, session, data, config) {
       selectInput(ns("dynamicRangeSelect"), "Range Filters", choices=c("None"="",names(data())), multiple=TRUE, selected=selectedCols())
     })
     
-    # UI output for dynamically created sliderInputs which were chosen in the primary select input above
+    # UI output for dynamically created sliderInputs chosen in the primary select input above
     output$dynamicRangeElementsUI <- renderUI({
         ns <- session$ns
         sd <- data()
@@ -77,7 +88,7 @@ dynamicRange <- function(input, output, session, data, config) {
             if (!is.null(input[[col]])) {
                 # if the session already has values for this element, use them
                 value <- c(input[[col]][1], input[[col]][2])
-            } else if (ns(col) %in% names(config)) {
+            } else if (!is.null(config) && ns(col) %in% names(config)) {
                 # if the loaded config has values for this element, use them
                 value <- c(config[[ns(col)]][1], config[[ns(col)]][2])
             } else {
