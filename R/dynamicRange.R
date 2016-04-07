@@ -27,24 +27,21 @@ dynamicRange <- function(input, output, session, data, config, useApplyBtn=FALSE
     # this will return data with all range filters applied
     filteredData <- reactive({
         ns <- session$ns
-        input$applyRangeFilters
-        isolate({
-            cols <- selectedCols()
-            sd <- data()
-            for (col in cols) {
-                if (col %in% names(sd)){
-                    sd[,col] <- as.numeric(sd[,col])
-                    sd <- sd[
-                        which(
-                            sd[,col] >= as.numeric(input[[col]][1]) &
-                                sd[,col] <= as.numeric(input[[col]][2])
-                        ), 
-                        # leaving the second argument empty like this means all columns will be selected
-                        ]    
-                }
+        cols <- selectedCols()
+        sd <- data()
+        for (col in cols) {
+            if (col %in% names(sd)){
+                sd[,col] <- as.numeric(sd[,col])
+                sd <- sd[
+                    which(
+                        sd[,col] >= as.numeric(input[[col]][1]) &
+                            sd[,col] <= as.numeric(input[[col]][2])
+                    ), 
+                    # leaving the second argument empty like this means all columns will be selected
+                    ]    
             }
-            sd    
-        })
+        }
+        sd
     })
     
     # Returns the columns selected as range filters.  
