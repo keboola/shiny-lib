@@ -38,8 +38,8 @@ appConfig <- function(input, output, session, kfig) {
         isolate({
             selectedConfigId <- input$config
             print(paste("selected config is:::", selectedConfigId))
-            if (is.null(selectedConfigId) || selectedConfigId == "None") {
-                print("selected config is null or none")
+            if (input$settingsMode != 1 || is.null(selectedConfigId) || selectedConfigId == "None") {
+                print("selected config is null or none or not in settingsMode")
                 return(NULL)
             }
             configs <- kfig$configs()
@@ -65,6 +65,7 @@ appConfig <- function(input, output, session, kfig) {
         ns <- session$ns
         print(paste("KB SETTINGS MODE configUI", input$settingsMode))
         input$confirmDelete
+        input$confirmCancel
         tagList(
             selectInput(ns("config"),"Configuration",c("None",kfig$configChoices()())),
             fluidRow(
@@ -131,9 +132,6 @@ appConfig <- function(input, output, session, kfig) {
             if (!is.null(input$confirmDelete) && input$confirmDelete >= 1) {
                 tryCatch({
                     resp <- kfig$deleteConfig(input$config)
-                    print(paste("deleted config:", input$config))
-                    print(paste("choices", kfig$configChoices()()))
-                    updateSelectInput(session,ns("config"), choices=c("None",kfig$configChoices()()), selected="None")
                     # return a success alert
                     div(class = 'alert alert-success', "Configuration successfully deleted.")
                 }, error = function(e) {
