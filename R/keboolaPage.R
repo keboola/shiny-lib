@@ -67,7 +67,6 @@ keboolaPage <- function(page, appTitle="Default") {
                             p("Cheers!")
                         ),
                         textInput("kb_token", "Enter KBC Token"),
-                        selectInput("kb_bucket", "Select a Bucket", choices=c()),
                         uiOutput("kb_loginMsg"),
                         actionButton("kb_login","Login")
                     )

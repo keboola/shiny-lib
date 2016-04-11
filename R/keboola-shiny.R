@@ -223,7 +223,7 @@ KeboolaShiny <- setRefClass(
                         class = "alert alert-danger",
                         errorContent
                     )
-                    write(paste0('Login error occured ', errMsg), stdout())
+                    write(paste0('Login error occured ', errMsg), stderr())
                     loggedIn <<- 0
                 }
             }
@@ -244,11 +244,10 @@ KeboolaShiny <- setRefClass(
             "connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
             \\subsection{Return Value}{void}"
             tryCatch({
-                .self$dbConnect()
                 # get database credentials and connect to database
-                print("connection established")
+                .self$dbConnect()
                 # login was successful
-                write("client successful",stdout())
+                write("connection established",stdout())
                 kfig <<- KeboolaAppConfig$new(.self$client, .self$componentId, .self$configId)
                 write("keboola config lib loaded",stdout())
                 kdat <<- KeboolaAppData$new(.self$client, .self$appConfig, .self$db)    
@@ -278,7 +277,6 @@ KeboolaShiny <- setRefClass(
             \\subsection{Return Value}{list of data.frames containing sourceData}"
             reactive({
                 if (!is.null(session$input$kb_continue) && session$input$kb_continue > 0) {
-                    print("TRYING TO CONCLUDE STARTUP")
                     .self$concludeStartup(session,NULL)
                 }
                 .self$kdat$sourceData    
@@ -318,7 +316,6 @@ KeboolaShiny <- setRefClass(
                     .self$client$listTables(bucket = .self$bucket), # get list of all table objects from bucket
                     function(t) { t$name } # return the name of the table
                 )
-                print("LAPPLLY on ALL TABLES")
                 tables <- list()
                 for (tableName in tableNames) {
                     tables[[tableName]] <- list(name=tableName)
@@ -333,14 +330,13 @@ KeboolaShiny <- setRefClass(
                 updateTextInput(session, "kb_detour", value="1")
                 
                 # we found that a table was too huge so we'll initiate diversion...
-                print(paste("Some tables are TOO BIG:", names(problemTables)))
+                print(paste("Memory overload possibility detected."))
                 session$output$kb_problemTables <- renderUI({
                     .self$kdat$problemTablesUI(problemTables)
                 })  
                 FALSE    
             } else {
                 # no table was deemed too big so we go ahead with loading
-                print("Tables are not so big")
                 print(paste("loading",tables))
                 .self$kdat$loadTables(tables, options)
                 TRUE
@@ -370,20 +366,16 @@ KeboolaShiny <- setRefClass(
             
             if (options$cleanData == TRUE && c("cleanData", "columnTypes") %in% names(.self$kdat$sourceData)) {
                 kdat$sourceData$columnTypes <<- .self$kdat$sourceData$columnTypes[,!names(.self$kdat$sourceData$columnTypes) %in% c("run_id", "_timestamp")]
-                print(paste("GETTING CLEAN DATA",names(.self$kdat$sourceData$cleanData)))
                 kdat$sourceData$cleanData <<- .self$kdat$getCleanData(.self$kdat$sourceData$columnTypes, .self$kdat$sourceData$cleanData)
             }
             
             if ("description" %in% names(options) && options$description == TRUE) {
-                print("finished detour, get description")
                 kdat$sourceData$descriptor <<- .self$kdat$getDescriptor()
                 session$output$description <- renderUI({.self$kdat$getDescription(options$appTitle, options$customElements)})
             }
             
             # if the input config option (the callback function) is given,
             # we need to populate the session output object with the UI elements for the modal.
-            print("inputlist start")
-            print(paste("inputList is size", length(options$inputList)))
             if (("configCallback" %in% names(options) && !is.null(options$configCallback)) || length(options$inputList) > 0) {
                 if (length(options$inputList) > 0) {
                     .self$kfig$registerInputs(options$inputList)
@@ -425,7 +417,7 @@ KeboolaShiny <- setRefClass(
             
             updateTextInput(session,"kb_detour", value="0")
             updateTextInput(session,"kb_loading",value="0")    
-            print("STARTUP CONClUDED")
+            write("App startup concluded", stdout())
         },
         
         
