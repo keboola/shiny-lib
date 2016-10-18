@@ -13,6 +13,10 @@
     position:relative;
 }
 
+.navbar-static-top {
+    z-index: inherit;
+}
+
 .kb-shiny-app-title {
     font-size: large;
     position: absolute;

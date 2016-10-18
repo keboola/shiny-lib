@@ -10,7 +10,6 @@ keboolaPage <- function(page, appTitle="Default") {
         directoryPath = system.file('components', package='keboola.shiny.lib'))
     
     bootstrapPage(
-        DT::datatable(data.frame()),
         # basic application container divs
         singleton(tags$head(
             tags$script(src = 'components/kb_common.js'),
