@@ -9,7 +9,7 @@ Description: Shared Libraries for Keboola Shiny Applications.
 Depends:
     shiny,
     keboola.sapi.r.client,
-    keboola.redshift.r.client,
+    keboola.backend.r.client,
     keboola.provisioning.r.client,
     jsonlite,
     DT,

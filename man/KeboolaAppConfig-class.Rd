@@ -21,14 +21,14 @@ This is the configuration component library for managing app configurations
  the returned list is used to populate the options for the config select input
 \subsection{Return Value}{array of configId -> 'configname -- date' }}
 
-\item{\code{configs()}}{reactive wrapper around our config fetcher
-\subsection{Return Value}{list of app input configurations}}
-
 \item{\code{configSelectorUI()}}{The config select element.
 \subsection{Return Value}{select input with id=kb_config}}
 
 \item{\code{configSettingsUI()}}{The main UI modal form
 \subsection{Return Value}{The config settings modal form}}
+
+\item{\code{configs()}}{reactive wrapper around our config fetcher
+\subsection{Return Value}{list of app input configurations}}
 
 \item{\code{deleteConfig(rowId)}}{Delete the configuration
 \subsection{Parameters}{\itemize{

@@ -12,7 +12,8 @@
 #' @field bucketId ID of the current bucket
 #' @field token Current KBC token
 #' @field client Instance of Storage API client
-#' @field db Instance of Redshift Driver 
+#' @field db Instance of Backend Driver (Redshift or Snowflake) 
+#' @field type of backend to use
 #' @field kfig Instance of Application Config
 #' @field kdata Instance of Application Data
 #' @field loading Flow control flag set to 1/true while initializing
@@ -31,7 +32,8 @@ KeboolaShiny <- setRefClass(
         componentId = 'character',
         configId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
-        db = 'ANY', # keboola.redshift.r.client::RedshiftDriver
+        db = 'ANY', # keboola.backend.r.client::BackendDriver
+        backendType = 'character',
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
         kdat = 'ANY', # keboola.shiny.lib::KeboolaAppData
         loading = 'numeric'
@@ -56,6 +58,7 @@ KeboolaShiny <- setRefClass(
             appConfig <<- NULL
             client <<- NULL
             db <<- NULL
+            backendType <<- 'redshift'
             kfig <<- NULL
             kdat <<- NULL
             loading <<- 1
@@ -132,18 +135,17 @@ KeboolaShiny <- setRefClass(
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
             write("Establishing Database Connection", stdout())
-            #credentials <- .self$client$createCredentials(.self$bucket,"shiny-lib-credentials")
-            #credentials <- credentials$redshift
             runId <- if (is.null(.self$appConfig$runId)) "" else .self$appConfig$runId
-            provisioningClient <- ProvisioningClient$new('redshift', .self$client$token, runId)
+            provisioningClient <- ProvisioningClient$new(.self$backendType, .self$client$token, runId)
             credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
-            db <<- RedshiftDriver$new()
+            db <<- BackendDriver$new()
             db$connect(
                 credentials$hostname, 
                 credentials$db,
                 credentials$user,
                 credentials$password,
-                credentials$schema
+                credentials$schema,
+                .self$backendType
             )    
             write("DB Connection Established", stdout())
             TRUE
@@ -390,7 +392,8 @@ KeboolaShiny <- setRefClass(
                 dataToSave = NULL,      # name of the reactive method that produces filtered data to save back to sapi
                 configCallback = NULL,  # callback function which sets inputs when input configuration chosen
                 description = FALSE,    # get the descriptor?
-                customElements = NULL   # function to process custom descriptor elements           
+                customElements = NULL,  # function to process custom descriptor elements
+                backend = "redshift"    # type of backend, redshift or snowflake
             )
         ){
             "This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
@@ -420,9 +423,8 @@ KeboolaShiny <- setRefClass(
             session$sendCustomMessage(
                 type = "updateProgress",
                 message = list(id="authenticating", text="Authenticating", value="In Progress", valueClass="text-primary"))
-            print("getLogin method")
+            
             ret$loginInfo <- .self$getLogin()
-            print("login done")
             updateTextInput(session,"kb_loggedIn",value=as.character(.self$loggedIn))
             
             if (.self$loggedIn == 1 && .self$ready()) {    
@@ -433,7 +435,7 @@ KeboolaShiny <- setRefClass(
                 session$sendCustomMessage(
                     type = "updateProgress",
                     message = list(id="connecting", text="Establishing Connection", value="In Progress", valueClass="text-primary"))
-                
+                backendType <<- backend    
                 .self$initLibs()
                 
                 session$sendCustomMessage(

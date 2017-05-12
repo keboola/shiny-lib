@@ -25,7 +25,9 @@ Helper Library for Keboola Shiny Applications
 
 \item{\code{client}}{Instance of Storage API client}
 
-\item{\code{db}}{Instance of Redshift Driver}
+\item{\code{db}}{Instance of Backend Driver (Redshift or Snowflake)}
+
+\item{\code{type}}{of backend to use}
 
 \item{\code{kfig}}{Instance of Application Config}
 
@@ -61,13 +63,13 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 \item{\code{getToken()}}{Get the token from the session headers or input element.
 \subsection{Return Value}{String KBC token}}
 
+\item{\code{initLibs()}}{connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
+\subsection{Return Value}{void}}
+
 \item{\code{initialize(session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
 \item{\code{session} Shiny session object.}
 }}}
-
-\item{\code{initLibs()}}{connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
-\subsection{Return Value}{void}}
 
 \item{\code{loadTable(prettyName, name)}}{Load table from Storage. 
 (Exposed wrapper for \code{KeboolaAppData} method).
@@ -93,7 +95,7 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 
 \item{\code{startup(options = list(appTitle = "", tables = list(), cleanData = FALSE,
   dataToSave = NULL, configCallback = NULL, description = FALSE, customElements
-  = NULL))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
+  = NULL, backend = "redshift"))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
 \subsection{Parameters}{\itemize{
 \item{\code{options} List with items:
 appTitle - the title of the application
