@@ -13,7 +13,6 @@
 #' @field token Current KBC token
 #' @field client Instance of Storage API client
 #' @field db Instance of Backend Driver (Redshift or Snowflake) 
-#' @field type of backend to use
 #' @field kfig Instance of Application Config
 #' @field kdata Instance of Application Data
 #' @field loading Flow control flag set to 1/true while initializing
@@ -33,7 +32,6 @@ KeboolaShiny <- setRefClass(
         configId = 'character',
         client = 'ANY', # keboola.sapi.r.client::SapiClient
         db = 'ANY', # keboola.backend.r.client::BackendDriver
-        backendType = 'character',
         kfig = 'ANY', # keboola.shiny.lib::KeboolaAppConfig
         kdat = 'ANY', # keboola.shiny.lib::KeboolaAppData
         loading = 'numeric'
@@ -131,9 +129,19 @@ KeboolaShiny <- setRefClass(
             lapply(.self$client$listBuckets(),function(bucket){ bucket$id })
         },
         
+        getBucketBackendType = function() {
+            "Return the backend typ of the bucket.
+            \\subsection{Return Value}{bucket backend type}"
+            .self$client$getBucket(.self$bucket)$backend
+        },
+        
         dbConnect = function() {
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
+            backendType <- .self$getBackendFromBucket()
+            if (!backendType %in% c("redshift", "snowflake")) {
+                write(paste("Error: unsupported bucket backend:", backendType), stderr())
+            }
             write("Establishing Database Connection", stdout())
             runId <- if (is.null(.self$appConfig$runId)) "" else .self$appConfig$runId
             provisioningClient <- ProvisioningClient$new(.self$backendType, .self$client$token, runId)
@@ -145,7 +153,7 @@ KeboolaShiny <- setRefClass(
                 credentials$user,
                 credentials$password,
                 credentials$schema,
-                .self$backendType
+                backendType
             )    
             write("DB Connection Established", stdout())
             TRUE
@@ -392,8 +400,7 @@ KeboolaShiny <- setRefClass(
                 dataToSave = NULL,      # name of the reactive method that produces filtered data to save back to sapi
                 configCallback = NULL,  # callback function which sets inputs when input configuration chosen
                 description = FALSE,    # get the descriptor?
-                customElements = NULL,  # function to process custom descriptor elements
-                backend = "redshift"    # type of backend, redshift or snowflake
+                customElements = NULL  # function to process custom descriptor elements
             )
         ){
             "This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
@@ -435,7 +442,6 @@ KeboolaShiny <- setRefClass(
                 session$sendCustomMessage(
                     type = "updateProgress",
                     message = list(id="connecting", text="Establishing Connection", value="In Progress", valueClass="text-primary"))
-                backendType <<- backend    
                 .self$initLibs()
                 
                 session$sendCustomMessage(
