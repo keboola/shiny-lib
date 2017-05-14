@@ -130,7 +130,7 @@ KeboolaShiny <- setRefClass(
         },
         
         getBucketBackendType = function() {
-            "Return the backend typ of the bucket.
+            "Return the backend type of the bucket.
             \\subsection{Return Value}{bucket backend type}"
             .self$client$getBucket(.self$bucket)$backend
         },
@@ -138,13 +138,13 @@ KeboolaShiny <- setRefClass(
         dbConnect = function() {
             "Establish a connection via provisioning client credentials.
             \\subsection{Return Value}{TRUE}"
-            backendType <- .self$getBackendFromBucket()
+            backendType <- .self$getBucketBackendType()
             if (!backendType %in% c("redshift", "snowflake")) {
                 write(paste("Error: unsupported bucket backend:", backendType), stderr())
             }
             write("Establishing Database Connection", stdout())
             runId <- if (is.null(.self$appConfig$runId)) "" else .self$appConfig$runId
-            provisioningClient <- ProvisioningClient$new(.self$backendType, .self$client$token, runId)
+            provisioningClient <- ProvisioningClient$new(backendType, .self$client$token, runId)
             credentials <- provisioningClient$getCredentials('luckyguess')$credentials 
             db <<- BackendDriver$new()
             db$connect(

@@ -27,8 +27,6 @@ Helper Library for Keboola Shiny Applications
 
 \item{\code{db}}{Instance of Backend Driver (Redshift or Snowflake)}
 
-\item{\code{type}}{of backend to use}
-
 \item{\code{kfig}}{Instance of Application Config}
 
 \item{\code{kdata}}{Instance of Application Data}
@@ -51,6 +49,9 @@ Helper Library for Keboola Shiny Applications
  Apps created via the kbc ui will have config starting kbc_
  Apps created via LG will start with lg_
 \subsection{Return Value}{String storage Bucket ID.}}
+
+\item{\code{getBucketBackendType()}}{Return the backend typ of the bucket.
+\subsection{Return Value}{bucket backend type}}
 
 \item{\code{getBuckets()}}{Return a list of accessible buckets.
 \subsection{Return Value}{Character vector of bucketIDs}}
@@ -95,7 +96,7 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 
 \item{\code{startup(options = list(appTitle = "", tables = list(), cleanData = FALSE,
   dataToSave = NULL, configCallback = NULL, description = FALSE, customElements
-  = NULL, backend = "redshift"))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
+  = NULL))}}{This is the main KBC app entry point for all initialisation housekeeping such as authentication and data retrieval
 \subsection{Parameters}{\itemize{
 \item{\code{options} List with items:
 appTitle - the title of the application
