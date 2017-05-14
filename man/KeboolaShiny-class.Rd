@@ -25,7 +25,7 @@ Helper Library for Keboola Shiny Applications
 
 \item{\code{client}}{Instance of Storage API client}
 
-\item{\code{db}}{Instance of Redshift Driver}
+\item{\code{db}}{Instance of Backend Driver (Redshift or Snowflake)}
 
 \item{\code{kfig}}{Instance of Application Config}
 
@@ -50,6 +50,9 @@ Helper Library for Keboola Shiny Applications
  Apps created via LG will start with lg_
 \subsection{Return Value}{String storage Bucket ID.}}
 
+\item{\code{getBucketBackendType()}}{Return the backend typ of the bucket.
+\subsection{Return Value}{bucket backend type}}
+
 \item{\code{getBuckets()}}{Return a list of accessible buckets.
 \subsection{Return Value}{Character vector of bucketIDs}}
 
@@ -61,13 +64,13 @@ token, runId, bucket, loggedIn, errMsg, client, ready
 \item{\code{getToken()}}{Get the token from the session headers or input element.
 \subsection{Return Value}{String KBC token}}
 
+\item{\code{initLibs()}}{connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
+\subsection{Return Value}{void}}
+
 \item{\code{initialize(session = getDefaultReactiveDomain())}}{Constructor.
 \subsection{Parameters}{\itemize{
 \item{\code{session} Shiny session object.}
 }}}
-
-\item{\code{initLibs()}}{connect to DB and initialise the keboolaAppData and keboolaAppConfig libraries
-\subsection{Return Value}{void}}
 
 \item{\code{loadTable(prettyName, name)}}{Load table from Storage. 
 (Exposed wrapper for \code{KeboolaAppData} method).
