@@ -50,7 +50,7 @@ Helper Library for Keboola Shiny Applications
  Apps created via LG will start with lg_
 \subsection{Return Value}{String storage Bucket ID.}}
 
-\item{\code{getBucketBackendType()}}{Return the backend typ of the bucket.
+\item{\code{getBucketBackendType()}}{Return the backend type of the bucket.
 \subsection{Return Value}{bucket backend type}}
 
 \item{\code{getBuckets()}}{Return a list of accessible buckets.

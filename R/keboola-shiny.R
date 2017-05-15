@@ -4,7 +4,7 @@
 #' @import shiny
 #' @import keboola.sapi.r.client
 #' @import keboola.provisioning.r.client
-#' @import keboola.redshift.r.client
+#' @import keboola.backend.r.client
 #' @field session Shiny session object
 #' @field loggedIn 1 if the user is logged in, 0 if not
 #' @field errMsg Error encountered when logging in
